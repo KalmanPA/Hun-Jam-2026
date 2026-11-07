@@ -204,8 +204,9 @@ public static class EnemyVariantsTool
         GameObject root = new GameObject("Shield");
         root.transform.SetParent(robot, false);
         root.transform.localPosition = ShieldPivot;
+        shatterRandom = new System.Random(1234); // same cracks on every rebuild
 
-        // Front plate with a glass window at the robot's face. Made of a grid of pieces so it can
+        // Front plate with a glass window at the robot's face, pre-shattered into random shards so it can
         // break apart: bottom, top, and the two sides of the window.
         float plateBottom = ShieldPlateCenterY - ShieldHeight * 0.5f;
         float plateTopY = ShieldPlateCenterY + ShieldHeight * 0.5f;
@@ -213,15 +214,15 @@ public static class EnemyVariantsTool
         float winTop = WindowCenterY + WindowHeight * 0.5f;
         float halfW = ShieldWidth * 0.5f;
         float halfWin = WindowWidth * 0.5f;
-        GridXY("PlateBottom", root.transform, -halfW, halfW, plateBottom, winBottom, ShieldPlateZ, 4, 3, mat);
-        GridXY("PlateTop", root.transform, -halfW, halfW, winTop, plateTopY, ShieldPlateZ, 4, 1, mat);
-        GridXY("PlateLeft", root.transform, -halfW, -halfWin, winBottom, winTop, ShieldPlateZ, 1, 1, mat);
-        GridXY("PlateRight", root.transform, halfWin, halfW, winBottom, winTop, ShieldPlateZ, 1, 1, mat);
-        // The glass still stops bullets (it's part of the shield). Two panes so it shatters too.
+        GridXY("PlateBottom", root.transform, -halfW, halfW, plateBottom, winBottom, ShieldPlateZ, 5, 3, mat);
+        GridXY("PlateTop", root.transform, -halfW, halfW, winTop, plateTopY, ShieldPlateZ, 5, 1, mat);
+        GridXY("PlateLeft", root.transform, -halfW, -halfWin, winBottom, winTop, ShieldPlateZ, 1, 2, mat);
+        GridXY("PlateRight", root.transform, halfWin, halfW, winBottom, winTop, ShieldPlateZ, 1, 2, mat);
+        // The glass still stops bullets (it's part of the shield). Shattered too.
         Material glass = GetGlassMaterial();
-        GridXY("Glass", root.transform, -halfWin, halfWin, winBottom, winTop, ShieldPlateZ, 2, 1, glass, ShieldThickness * 0.4f);
+        GridXY("Glass", root.transform, -halfWin, halfWin, winBottom, winTop, ShieldPlateZ, 4, 2, glass, ShieldThickness * 0.4f);
 
-        // Roof: from the plate's top edge back over the robot's head, also a grid.
+        // Roof: from the plate's top edge back over the robot's head, also shattered.
         float plateFront = ShieldPlateZ + ShieldThickness * 0.5f;
         float plateTop = ShieldPlateCenterY + ShieldHeight * 0.5f;
         GridXZ("Roof", root.transform, -halfW, halfW, plateFront - RoofDepth, plateFront, plateTop + ShieldThickness * 0.5f, 4, 3, mat);
@@ -239,26 +240,139 @@ public static class EnemyVariantsTool
         return root.AddComponent<EnemyShield>();
     }
 
-    /// <summary>Vertical plate from (x0,y0) to (x1,y1) at depth z, cut into cols x rows pieces.</summary>
+    // Fixed seed, so rebuilding gives the same cracks every time.
+    private static System.Random shatterRandom = new System.Random(1234);
+
+    /// <summary>
+    /// Vertical plate from (x0,y0) to (x1,y1) at depth z, pre-shattered into random shards (Voronoi cells around
+    /// cols x rows jittered seed points).
+    /// </summary>
     private static void GridXY(string name, Transform parent, float x0, float x1, float y0, float y1, float z,
                                int cols, int rows, Material mat, float thickness = ShieldThickness)
     {
-        float w = (x1 - x0) / cols, h = (y1 - y0) / rows;
-        for (int c = 0; c < cols; c++)
-            for (int r = 0; r < rows; r++)
-                Piece(cols * rows > 1 ? $"{name}_{c}_{r}" : name, parent, new Vector3(w, h, thickness),
-                      new Vector3(x0 + w * (c + 0.5f), y0 + h * (r + 0.5f), z), mat);
+        int i = 0;
+        foreach (System.Collections.Generic.List<Vector2> cell in Shatter(x0, x1, y0, y1, cols, rows))
+            Shard($"{name}_{i++}", parent, cell, z, thickness, false, mat);
     }
 
-    /// <summary>Horizontal plate from (x0,z0) to (x1,z1) at height y, cut into cols x rows pieces.</summary>
+    /// <summary>Horizontal plate from (x0,z0) to (x1,z1) at height y, pre-shattered like <see cref="GridXY"/>.</summary>
     private static void GridXZ(string name, Transform parent, float x0, float x1, float z0, float z1, float y,
                                int cols, int rows, Material mat)
     {
-        float w = (x1 - x0) / cols, d = (z1 - z0) / rows;
+        int i = 0;
+        foreach (System.Collections.Generic.List<Vector2> cell in Shatter(x0, x1, z0, z1, cols, rows))
+            Shard($"{name}_{i++}", parent, cell, y, ShieldThickness, true, mat);
+    }
+
+    /// <summary>Voronoi cells of jittered seeds inside a rectangle. Every cell is a convex polygon (counter-clockwise).</summary>
+    private static System.Collections.Generic.List<System.Collections.Generic.List<Vector2>> Shatter(
+        float x0, float x1, float y0, float y1, int cols, int rows)
+    {
+        var seeds = new System.Collections.Generic.List<Vector2>();
+        float w = (x1 - x0) / cols, h = (y1 - y0) / rows;
         for (int c = 0; c < cols; c++)
             for (int r = 0; r < rows; r++)
-                Piece($"{name}_{c}_{r}", parent, new Vector3(w, ShieldThickness, d),
-                      new Vector3(x0 + w * (c + 0.5f), y, z0 + d * (r + 0.5f)), mat);
+                seeds.Add(new Vector2(x0 + w * (c + 0.5f + Rand(-0.42f, 0.42f)), y0 + h * (r + 0.5f + Rand(-0.42f, 0.42f))));
+
+        var cells = new System.Collections.Generic.List<System.Collections.Generic.List<Vector2>>();
+        for (int i = 0; i < seeds.Count; i++)
+        {
+            var poly = new System.Collections.Generic.List<Vector2>
+                { new Vector2(x0, y0), new Vector2(x1, y0), new Vector2(x1, y1), new Vector2(x0, y1) };
+            for (int j = 0; j < seeds.Count && poly.Count >= 3; j++)
+            {
+                if (i == j) continue;
+                Vector2 mid = (seeds[i] + seeds[j]) * 0.5f;
+                poly = ClipHalfPlane(poly, mid, seeds[j] - seeds[i]);
+            }
+            if (poly.Count >= 3) cells.Add(poly);
+        }
+        return cells;
+    }
+
+    /// <summary>Keeps the part of a convex polygon where (p - point)·normal &lt;= 0.</summary>
+    private static System.Collections.Generic.List<Vector2> ClipHalfPlane(System.Collections.Generic.List<Vector2> poly, Vector2 point, Vector2 normal)
+    {
+        var result = new System.Collections.Generic.List<Vector2>();
+        for (int i = 0; i < poly.Count; i++)
+        {
+            Vector2 a = poly[i], b = poly[(i + 1) % poly.Count];
+            float da = Vector2.Dot(a - point, normal), db = Vector2.Dot(b - point, normal);
+            if (da <= 0f) result.Add(a);
+            if ((da < 0f && db > 0f) || (da > 0f && db < 0f))
+                result.Add(Vector2.Lerp(a, b, da / (da - db)));
+        }
+        return result;
+    }
+
+    private static float Rand(float min, float max) => min + (float)shatterRandom.NextDouble() * (max - min);
+
+    /// <summary>
+    /// One shard: the convex polygon extruded to the given thickness, built as a ProBuilder mesh at its real size
+    /// (no scaling, so textures tile), with a convex mesh collider. Horizontal shards lie in the XZ plane.
+    /// </summary>
+    private static void Shard(string name, Transform parent, System.Collections.Generic.List<Vector2> poly2D, float depth,
+                              float thickness, bool horizontal, Material mat)
+    {
+        Vector2 c2 = Vector2.zero;
+        foreach (Vector2 p in poly2D) c2 += p;
+        c2 /= poly2D.Count;
+
+        // Local points around the shard centre; the polygon's plane axes are (u, v), thickness along n.
+        Vector3 U = Vector3.right;
+        Vector3 V = horizontal ? Vector3.forward : Vector3.up;
+        Vector3 N = horizontal ? Vector3.up : Vector3.forward; // thickness axis
+        float half = thickness * 0.5f;
+        int n = poly2D.Count;
+        Vector3 P(int i, float side) => U * (poly2D[i].x - c2.x) + V * (poly2D[i].y - c2.y) + N * (half * side);
+
+        var positions = new System.Collections.Generic.List<Vector3>();
+        var faces = new System.Collections.Generic.List<Face>();
+
+        void AddFace(System.Collections.Generic.List<Vector3> verts, Vector3 outward)
+        {
+            int start = positions.Count;
+            positions.AddRange(verts);
+            var tris = new System.Collections.Generic.List<int>();
+            for (int k = 1; k < verts.Count - 1; k++)
+            {
+                int a = start, b = start + k, c = start + k + 1;
+                // Unity front faces: normal = Cross(b - a, c - a). Flip the triangle if it points inward.
+                if (Vector3.Dot(Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]), outward) < 0f)
+                    (b, c) = (c, b);
+                tris.Add(a); tris.Add(b); tris.Add(c);
+            }
+            faces.Add(new Face(tris));
+        }
+
+        var front = new System.Collections.Generic.List<Vector3>();
+        var back = new System.Collections.Generic.List<Vector3>();
+        for (int i = 0; i < n; i++) { front.Add(P(i, 1f)); back.Add(P(i, -1f)); }
+        AddFace(front, N);
+        AddFace(back, -N);
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            Vector3 edge = P(j, 0f) - P(i, 0f);
+            Vector3 outward = Vector3.Cross(edge, N).normalized;
+            Vector3 mid = (P(i, 0f) + P(j, 0f)) * 0.5f;
+            if (Vector3.Dot(outward, mid) < 0f) outward = -outward; // shard is convex around its centre
+            AddFace(new System.Collections.Generic.List<Vector3> { P(i, 1f), P(j, 1f), P(j, -1f), P(i, -1f) }, outward);
+        }
+
+        ProBuilderMesh pb = ProBuilderMesh.Create(positions, faces);
+        pb.gameObject.name = name;
+        pb.transform.SetParent(parent, false);
+        pb.transform.localPosition = horizontal ? new Vector3(c2.x, depth, c2.y) : new Vector3(c2.x, c2.y, depth);
+        pb.transform.localRotation = Quaternion.identity;
+        pb.transform.localScale = Vector3.one;
+        pb.ToMesh();
+        pb.Refresh();
+        pb.GetComponent<MeshRenderer>().sharedMaterial = mat;
+
+        MeshCollider mc = pb.gameObject.AddComponent<MeshCollider>();
+        mc.sharedMesh = pb.GetComponent<MeshFilter>().sharedMesh;
+        mc.convex = true;
     }
 
     /// <summary>A ProBuilder box built at its real size (faces moved, not scaled), with a convex mesh collider.</summary>
@@ -319,6 +433,7 @@ public static class EnemyVariantsTool
         return mat;
     }
 }
+
 
 
 
