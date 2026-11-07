@@ -127,6 +127,7 @@ public static class EnemyVariantsTool
         NavMeshAgent agent = robot.GetComponent<NavMeshAgent>();
         agent.speed = 5f;
         agent.acceleration = 20f;
+        ShieldNavMeshTool.SetAgent(robot, ShieldNavMeshTool.EnsureAgentType()); // wide NavMesh so the shield stays off walls
     }
 
     private static void SetUpShieldRobot(GameObject robot)
@@ -154,6 +155,7 @@ public static class EnemyVariantsTool
         muzzles.arraySize = 1;
         muzzles.GetArrayElementAtIndex(0).objectReferenceValue = muzzle;
         so.FindProperty("muzzleFlash").objectReferenceValue = flash;
+        ShieldNavMeshTool.SetAgent(robot, ShieldNavMeshTool.EnsureAgentType()); // wide NavMesh so the shield stays off walls
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 

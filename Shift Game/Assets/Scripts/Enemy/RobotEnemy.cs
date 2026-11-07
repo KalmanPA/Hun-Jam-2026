@@ -314,9 +314,14 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         blockMin = -WallDistance(-blockAxis);
     }
 
+    /// <summary>
+    /// How far it can slide in <paramref name="dir"/>: to the edge of its own NavMesh. Shield robots use the wide
+    /// "Shielded" agent type, whose NavMesh already stays a shield's width away from walls.
+    /// </summary>
     private float WallDistance(Vector3 dir)
     {
-        if (NavMesh.Raycast(blockOrigin, blockOrigin + dir * maxBlockDistance, out NavMeshHit hit, NavMesh.AllAreas))
+        NavMeshQueryFilter filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = NavMesh.AllAreas };
+        if (NavMesh.Raycast(blockOrigin, blockOrigin + dir * maxBlockDistance, out NavMeshHit hit, filter))
             return Mathf.Max(0f, Vector3.Dot(hit.position - blockOrigin, dir));
         return maxBlockDistance;
     }
