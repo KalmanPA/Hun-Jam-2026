@@ -24,6 +24,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         if (IsDead || amount <= 0f) return;
         Current = Mathf.Max(0f, Current - amount);
+        GameAudio.Play2D(SoundId.PlayerHurt, Mathf.Clamp(amount / 20f, 0.5f, 1f));
         if (IsDead) Died?.Invoke();
     }
 

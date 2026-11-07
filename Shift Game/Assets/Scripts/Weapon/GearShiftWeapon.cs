@@ -531,9 +531,20 @@ public class GearShiftWeapon : MonoBehaviour
 
         if (g != CurrentGear)
         {
+            bool wasInGear = CurrentGear != Gear.Neutral;
             CurrentGear = g;
             burstRemaining = 0;
-            if (g != Gear.Neutral) gearKick = 1f;
+            if (g != Gear.Neutral)
+            {
+                gearKick = 1f;
+                // Heavier clunk into the low gears, lighter into the high ones.
+                float pitch = g == Gear.Reverse ? 0.85f : 1.05f - 0.05f * ((int)g - (int)Gear.First);
+                GameAudio.Play2D(SoundId.WeaponGearEngage, 1f, pitch);
+            }
+            else if (wasInGear)
+            {
+                GameAudio.Play2D(SoundId.WeaponGearRelease);
+            }
         }
     }
 
@@ -612,7 +623,11 @@ public class GearShiftWeapon : MonoBehaviour
         if (burstRemaining > 0 || Time.time < nextFireTime) return;
 
         nextFireTime = Time.time + 1f / Mathf.Max(0.01f, s.fireRate);
-        if (Ammo < Mathf.Max(1, s.ammoCost)) return; // empty: no reload in this game
+        if (Ammo < Mathf.Max(1, s.ammoCost))
+        {
+            GameAudio.Play2D(SoundId.WeaponEmpty); // empty: no reload in this game
+            return;
+        }
 
         // Tip the gun back; it returns to rest exactly when the next shot (or burst) is ready.
         recoilShotTime = Time.time;
@@ -642,6 +657,7 @@ public class GearShiftWeapon : MonoBehaviour
     private void RocketJump(GearFireSettings s)
     {
         Ammo -= Mathf.Max(1, s.ammoCost);
+        GameAudio.Play2D(SoundId.WeaponRocketJump);
         Vector3 aim = cam != null ? cam.transform.forward : transform.forward;
         if (controller != null) controller.AddImpulse(-aim * s.rocketForce);
 
@@ -677,6 +693,8 @@ public class GearShiftWeapon : MonoBehaviour
             }
         }
 
+        GameAudio.Play2D(ShotSound(s));
+
         Material mat = BulletMaterial(s.bulletColor);
         if (s.laser)
             GearLaser.Fire(origin, dir, s, owner, mat, mat);
@@ -684,6 +702,13 @@ public class GearShiftWeapon : MonoBehaviour
             GearBullet.Spawn(origin, dir, s, owner, mat);
         recoilOffset += new Vector3(0f, 0.004f, -recoilKick);
         return true;
+    }
+
+    private SoundId ShotSound(GearFireSettings s)
+    {
+        if (s.laser) return SoundId.WeaponLaser;
+        if (s == gear3 || s.burstCount > 1) return SoundId.WeaponGear3Shot;
+        return SoundId.WeaponGear2Shot;
     }
 
     public void AddAmmo(int amount)

@@ -35,6 +35,7 @@ public class DoorTarget : MonoBehaviour, IDamageable
         current -= amount;
         kick = hitKick;
         if (current <= 0f) Break();
+        else GameAudio.Play(SoundId.TargetHit, transform.position + Vector3.up, Mathf.Clamp(amount / 15f, 0.5f, 1f));
     }
 
     private void Update()
@@ -60,5 +61,6 @@ public class DoorTarget : MonoBehaviour, IDamageable
             }
         }
         GearExplosion.Spawn(center, explosionSize, explosionMaterial, explosionColor);
+        GameAudio.Play(SoundId.TargetBreak, center);
     }
 }

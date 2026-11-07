@@ -136,6 +136,7 @@ public class EnemySpawner : MonoBehaviour
         SetLamps(false);
         if (trapdoor != null)
         {
+            GameAudio.Play(SoundId.SpawnerHatch, trapdoor.position);
             Vector3 from = trapdoorOpenPos, to = trapdoorOpenPos + trapdoorSlide;
             for (float t = 0f; t < 1f; t += Time.deltaTime / Mathf.Max(0.01f, trapdoorCloseTime))
             {

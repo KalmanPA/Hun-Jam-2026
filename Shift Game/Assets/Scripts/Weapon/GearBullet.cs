@@ -65,6 +65,7 @@ public class GearBullet : MonoBehaviour
         {
             IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
             target?.TakeDamage(damage);
+            if (target == null) GameAudio.Play(SoundId.BulletImpact, hit.point, Mathf.Clamp(damage / 12f, 0.4f, 1f)); // damageables make their own hit sound
             PushRigidbody(hit, direction, damage);
             End(hit.point);
             return;
@@ -92,7 +93,10 @@ public class GearBullet : MonoBehaviour
     private void End(Vector3 position)
     {
         if (explodeOnEnd)
+        {
             GearExplosion.Spawn(position, explosionSize, material, color);
+            GameAudio.Play(SoundId.Gear2Explosion, position, Mathf.Clamp(explosionSize / 0.6f, 0.5f, 1.3f));
+        }
         Destroy(gameObject);
     }
 

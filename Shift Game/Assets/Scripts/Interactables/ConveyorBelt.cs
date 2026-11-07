@@ -122,6 +122,16 @@ public class ConveyorBelt : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        // Machine hum along the whole belt (the sound slides to the point nearest the player).
+        if (Application.isPlaying && Speed > 0f)
+        {
+            SoundLoopEmitter hum = SoundLoopEmitter.Attach(gameObject, SoundId.ConveyorLoop, true, length);
+            hum.transform.localPosition = new Vector3(0f, height, 0f);
+        }
+    }
+
     private void Update()
     {
         if (Application.isPlaying && width > 0f)

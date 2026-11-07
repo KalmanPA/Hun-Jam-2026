@@ -164,6 +164,12 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     private Material faceMaterial;
     private float faceOffset = float.NaN;
 
+    // Sound
+    private static float nextAlertBarkTime;
+    private bool wasAware;
+    private float nextHurtVoiceTime;
+    private SoundHandle voiceLine;  // one voice per robot: a new line cuts the old one
+
     public bool IsDead => dead;
 
     /// <summary>True while the robot still holds its shield (and can't be hurt).</summary>
@@ -268,6 +274,9 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         float distance = FlatDistance(transform.position, player.position);
         if (distance <= detectionRange) aware = true;
         if (!playerAlive || combatLocked) aware = false;
+
+        if (aware && !wasAware) BarkAlert();
+        wasAware = aware;
 
         canSee = aware && CanSeePlayer();
         aim.Tick(canSee, Time.deltaTime);
@@ -477,6 +486,7 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         Vector3 point = aim.PickAimPoint(origin, canSee, out _);
         Vector3 dir = point - origin;
         if (dir.sqrMagnitude < 0.0001f) dir = muzzle.forward;
+        GameAudio.Play(shotType == ShotType.Laser ? SoundId.EnemyLaserFire : SoundId.EnemyBulletFire, origin);
         if (shotType == ShotType.Laser)
             EnemyLaser.Fire(origin, dir, bulletRange, bulletDamage, laserWidth, laserDuration, bulletMaterial, bulletColor);
         else
@@ -552,10 +562,20 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
         health -= amount;
 
+        // Clang on the body, then (not on every bullet) a grunt.
+        GameAudio.Play(SoundId.RobotHitMetal, transform.position + Vector3.up * 1f + UnityEngine.Random.insideUnitSphere * 0.3f,
+            Mathf.Clamp(amount / 20f, 0.5f, 1f));
+
         if (health <= 0f)
         {
             Die();
             return;
+        }
+
+        if (Time.time >= nextHurtVoiceTime)
+        {
+            nextHurtVoiceTime = Time.time + UnityEngine.Random.Range(0.45f, 0.9f);
+            SayLine(SoundId.RobotHurt);
         }
 
         if (hitFlashMaterial != null)
@@ -605,6 +625,9 @@ public class RobotEnemy : MonoBehaviour, IDamageable
             agent.velocity = Vector3.zero;
         }
         SetFace(dyingFaceOffset);
+        voiceLine.Stop(0.05f);
+        GameAudio.PlayAttached(SoundId.RobotDeath, transform, Vector3.up * 1.2f);
+        if (UnityEngine.Random.value < 0.35f) SayLine(SoundId.RobotDeathVoice);
         StartCoroutine(ExplodeAfterDelay());
     }
 
@@ -620,6 +643,7 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
         Vector3 center = transform.position + Vector3.up * 0.9f;
         GearExplosion.Spawn(center, 1.6f, explosionMaterial, new Color(1f, 0.5f, 0.1f), 0.45f);
+        GameAudio.Play(SoundId.RobotExplode, center);
 
         // Explode into pieces: every part with a collider becomes a loose physics piece.
         foreach (Collider c in GetComponentsInChildren<Collider>())
@@ -630,12 +654,35 @@ public class RobotEnemy : MonoBehaviour, IDamageable
             rb.mass = 0.5f;
             rb.AddExplosionForce(debrisForce, center - Vector3.up * 0.4f, 3f, 0.6f, ForceMode.Impulse);
             rb.AddTorque(UnityEngine.Random.insideUnitSphere * debrisForce * 0.3f, ForceMode.Impulse);
+            ImpactSound.AddTo(part.gameObject);
             Destroy(part.gameObject, debrisLifetime + UnityEngine.Random.Range(0f, 1f));
         }
 
         DropPickups();
         AnyDied?.Invoke(this);
         Destroy(gameObject);
+    }
+
+    // ---------------------------------------------------------------- voice
+
+    /// <summary>Says a voice line from the robot's head, cutting off whatever it was saying.</summary>
+    private void SayLine(SoundId id)
+    {
+        SoundHandle h = GameAudio.PlayAttached(id, transform, Vector3.up * 1.4f);
+        if (h.IsValid)
+        {
+            voiceLine.Stop(0.05f);
+            voiceLine = h;
+        }
+    }
+
+    /// <summary>"Stop, you criminal!" when it notices the player. Shared cooldown so a room of robots doesn't all shout.</summary>
+    private void BarkAlert()
+    {
+        if (nextAlertBarkTime - Time.time > 10f) nextAlertBarkTime = 0f; // left over from a previous play session
+        if (Time.time < nextAlertBarkTime) return;
+        nextAlertBarkTime = Time.time + UnityEngine.Random.Range(5f, 9f);
+        SayLine(SoundId.RobotAlert);
     }
 
     private void DropPickups()

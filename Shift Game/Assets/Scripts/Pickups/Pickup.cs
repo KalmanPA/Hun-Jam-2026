@@ -100,7 +100,11 @@ public class Pickup : MonoBehaviour
         Vector3 playerCenter = playerHealth.transform.position + Vector3.up * 0.9f;
         if ((playerCenter - transform.position).sqrMagnitude > pickupRadius * pickupRadius) return;
 
-        if (TryApply()) Destroy(gameObject);
+        if (TryApply())
+        {
+            GameAudio.Play2D(kind == Kind.Health ? SoundId.PickupHealth : SoundId.PickupAmmo);
+            Destroy(gameObject);
+        }
     }
 
     private void Fall(float dt)
@@ -115,6 +119,7 @@ public class Pickup : MonoBehaviour
         {
             if (hit.normal.y > 0.5f)
             {
+                GameAudio.Play(SoundId.PickupLand, hit.point);
                 Land();
                 return;
             }

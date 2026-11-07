@@ -36,6 +36,7 @@ public class EnemyLaser : MonoBehaviour
             length = hit.distance;
             hit.collider.GetComponentInParent<IDamageable>()?.TakeDamage(damage);
             GearExplosion.Spawn(hit.point, width * 4f, material, color, 0.2f);
+            GameAudio.Play(SoundId.EnemyBulletImpact, hit.point);
         }
 
         GameObject go = new GameObject("EnemyLaser");

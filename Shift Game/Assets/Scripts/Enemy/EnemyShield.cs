@@ -60,6 +60,7 @@ public class EnemyShield : MonoBehaviour, IDamageable
         lastHitTime = Time.time;
 
         targetTilt = Mathf.Min(maxTilt, targetTilt + tiltPerHit);
+        GameAudio.Play(SoundId.ShieldHit, transform.position, Mathf.Clamp(amount / 15f, 0.5f, 1f));
 
         if (chain >= hitsToKnockOff) KnockOff();
     }
@@ -91,6 +92,7 @@ public class EnemyShield : MonoBehaviour, IDamageable
         foreach (Collider c in pieces) center += c.bounds.center;
         center = pieces.Length > 0 ? center / pieces.Length : transform.position;
         Vector3 burstPoint = center - forward * 0.4f;
+        GameAudio.Play(SoundId.ShieldBreak, center);
 
         foreach (Collider c in pieces)
         {
@@ -106,6 +108,7 @@ public class EnemyShield : MonoBehaviour, IDamageable
             rb.mass = pieceMass;
             rb.AddExplosionForce(breakForce, burstPoint, 3f, 0.4f, ForceMode.Impulse);
             rb.AddTorque(UnityEngine.Random.insideUnitSphere * breakForce * 0.4f, ForceMode.Impulse);
+            ImpactSound.AddTo(piece.gameObject);
             if (pieceLifetime > 0f) Destroy(piece.gameObject, pieceLifetime + UnityEngine.Random.Range(0f, 1.5f));
         }
 
