@@ -14,10 +14,20 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public bool IsDead => Current <= 0f;
 
     public event Action Died;
+    public event Action Revived;
 
     private void Awake()
     {
         Current = maxHealth;
+        // Death: camera falls, gun drops, fade to black, respawn at the active checkpoint.
+        if (GetComponent<PlayerDeathSequence>() == null) gameObject.AddComponent<PlayerDeathSequence>();
+    }
+
+    /// <summary>Brings the player back to full health (called on respawn).</summary>
+    public void Revive()
+    {
+        Current = maxHealth;
+        Revived?.Invoke();
     }
 
     public void TakeDamage(float amount)
