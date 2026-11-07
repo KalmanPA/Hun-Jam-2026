@@ -25,6 +25,12 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] private float groundPushDrag = 14f;
     [SerializeField] private float airPushDrag = 2.5f;
 
+    [Header("Pushing props")]
+    [Tooltip("Small loose props (like conveyor crates) lighter than this get shoved when the player walks into them.")]
+    [SerializeField] private float maxPushMass = 30f;
+    [Tooltip("Speed a shoved prop gets, as a fraction of the player's walk speed.")]
+    [SerializeField] private float pushStrength = 0.9f;
+
     [Header("Look")]
     [SerializeField] private float mouseSensitivity = 0.1f;
     [SerializeField] private float gamepadSensitivity = 150f;
@@ -43,6 +49,8 @@ public class FirstPersonController : MonoBehaviour
     public bool LookLocked { get; set; }
 
     private Vector3 pushVelocity;
+    private Vector3 beltVelocity;   // set while standing on a conveyor belt
+    private bool onBeltThisFrame;
 
     /// <summary>Adds a one-off push (m/s), e.g. the gear 4 rocket jump.</summary>
     public void AddImpulse(Vector3 velocityChange)
@@ -132,11 +140,35 @@ public class FirstPersonController : MonoBehaviour
         }
         verticalVelocity += gravity * Time.deltaTime;
 
-        Vector3 velocity = horizontal + pushVelocity + Vector3.up * verticalVelocity;
+        Vector3 velocity = horizontal + pushVelocity + beltVelocity + Vector3.up * verticalVelocity;
+        onBeltThisFrame = false;
         CollisionFlags flags = controller.Move(velocity * Time.deltaTime);
+        if (!onBeltThisFrame) beltVelocity = Vector3.zero;
 
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f; // bonk the ceiling
         pushVelocity = Vector3.MoveTowards(pushVelocity, Vector3.zero, (grounded ? groundPushDrag : airPushDrag) * Time.deltaTime);
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        // Standing on a conveyor belt carries the player along.
+        if (hit.moveDirection.y < -0.3f && hit.collider.TryGetComponent(out ConveyorBelt belt))
+        {
+            beltVelocity = belt.SurfaceVelocity;
+            onBeltThisFrame = true;
+            return;
+        }
+
+        // Shove light loose props. Heavy or kinematic ones (big crates) don't move.
+        Rigidbody body = hit.rigidbody;
+        if (body == null || body.isKinematic || body.mass > maxPushMass) return;
+        if (hit.moveDirection.y < -0.3f) return; // standing on top of it
+
+        Vector3 dir = new Vector3(hit.moveDirection.x, 0f, hit.moveDirection.z);
+        if (dir.sqrMagnitude < 0.0001f) return;
+        Vector3 push = dir.normalized * walkSpeed * pushStrength;
+        Vector3 v = body.linearVelocity;
+        body.linearVelocity = new Vector3(push.x, v.y, push.z);
     }
 
     private static void LockCursor(bool locked)

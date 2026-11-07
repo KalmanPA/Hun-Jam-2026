@@ -65,6 +65,7 @@ public class GearBullet : MonoBehaviour
         {
             IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
             target?.TakeDamage(damage);
+            PushRigidbody(hit, direction, damage);
             End(hit.point);
             return;
         }
@@ -77,6 +78,15 @@ public class GearBullet : MonoBehaviour
 
         if (lastStep)
             End(transform.position);
+    }
+
+    /// <summary>Knocks loose props (small conveyor crates, robot wreckage) away. Kinematic bodies don't move.</summary>
+    public static void PushRigidbody(RaycastHit hit, Vector3 direction, float damage)
+    {
+        Rigidbody body = hit.rigidbody;
+        if (body == null || body.isKinematic) return;
+        float impulse = Mathf.Clamp(damage * 0.4f, 2f, 15f);
+        body.AddForceAtPosition(direction.normalized * impulse, hit.point, ForceMode.Impulse);
     }
 
     private void End(Vector3 position)
