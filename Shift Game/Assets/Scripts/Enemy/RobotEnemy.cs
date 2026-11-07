@@ -355,8 +355,10 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
     private void RestoreMaterials()
     {
-        for (int i = 0; i < bodyRenderers.Length; i++)
-            if (bodyRenderers[i] != null)
+        // originalMaterials isn't serialized, so it is lost if scripts recompile during play mode.
+        if (originalMaterials == null) return;
+        for (int i = 0; i < bodyRenderers.Length && i < originalMaterials.Length; i++)
+            if (bodyRenderers[i] != null && originalMaterials[i] != null)
                 bodyRenderers[i].sharedMaterials = originalMaterials[i];
     }
 

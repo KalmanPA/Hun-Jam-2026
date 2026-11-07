@@ -7,20 +7,26 @@ using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Builds the placeholder Robot prefab (boxy yellow robot with a gun arm) and the health/ammo pickup
-/// prefabs, puts one robot in the Kalman test scene and bakes its NavMesh.
-/// Menu: Final Shift > Build Robot And Pickup Prefabs / Add Robot And Bake NavMesh / Bake NavMesh.
+/// Robot setup helpers.
+///  - Builds the placeholder "OldProtbot" prefab (boxy yellow robot with a gun arm) and the health/ammo pickup prefabs.
+///  - Sets up the real Robot prefab (Kalman's model): mesh colliders on every model piece so they fall apart
+///    on death, and bullets fired from the model's muzzle object.
+///  - Puts one robot in the Kalman test scene and bakes its NavMesh.
+/// Menu: Final Shift > ...
 /// </summary>
 [InitializeOnLoad]
 public static class RobotSetupTool
 {
     private const string ScenePath = "Assets/Scenes/Kalman test scene.unity";
     private const string PrefabFolder = "Assets/Prefabs";
-    private const string RobotPrefabPath = PrefabFolder + "/Robot.prefab";
+    private const string RobotPrefabPath = PrefabFolder + "/Robot.prefab";                // Kalman's model
+    private const string OldProtbotPrefabPath = PrefabFolder + "/OldProtbot.prefab";     // placeholder boxes
     private const string HealthPickupPath = PrefabFolder + "/HealthPickup.prefab";
     private const string AmmoPickupPath = PrefabFolder + "/AmmoPickup.prefab";
     private const string MaterialFolder = "Assets/ProtMaterials";
-    // Creating this file (in the project's Temp folder) rebuilds the prefabs once on the next editor reload.
+    // The old placeholder parts that are removed from the Robot prefab when it is switched to the model.
+    private static readonly string[] PlaceholderParts = { "Treads", "Hips", "Torso", "ArmLeft", "HeadPivot", "GunPivot" };
+    // Creating this file (in the project's Temp folder) runs the model setup once on the next editor reload.
     private const string TriggerFile = "Temp/FinalShift_RunRobotSetup";
 
     private static readonly Vector3 RobotPosition = new Vector3(6f, 0f, 15f);
@@ -36,27 +42,32 @@ public static class RobotSetupTool
                 Debug.LogWarning("[FinalShift] Robot setup skipped: editor is in play mode.");
                 return;
             }
-            // Rebuilds the prefabs only; robots already in scenes update because they are prefab instances.
             BuildPrefabs(true);
+            SetUpRobotModelPrefab();
             AssetDatabase.SaveAssets();
-            Debug.Log("[FinalShift] Robot prefabs rebuilt.");
+            Debug.Log("[FinalShift] Robot model setup finished.");
         };
     }
 
     // ---------------------------------------------------------------- menu
 
-    [MenuItem("Final Shift/Build Robot And Pickup Prefabs")]
+    [MenuItem("Final Shift/Build OldProtbot And Pickup Prefabs")]
     public static void BuildPrefabsMenu() => BuildPrefabs(true);
+
+    [MenuItem("Final Shift/Set Up Robot Model Prefab")]
+    public static void SetUpRobotModelMenu() => SetUpRobotModelPrefab();
 
     [MenuItem("Final Shift/Add Robot And Bake NavMesh")]
     public static void AddRobotAndBakeMenu() => Setup(false);
 
-    /// <param name="rebuild">Rebuild the prefabs and replace any robots already in the scene with one fresh robot.</param>
+    /// <param name="rebuild">Replace any robots already in the scene with one fresh robot.</param>
     private static void Setup(bool rebuild)
     {
         try
         {
-            GameObject robotPrefab = BuildPrefabs(rebuild);
+            BuildPrefabs(false);
+            GameObject robotPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RobotPrefabPath);
+            if (robotPrefab == null) robotPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OldProtbotPrefabPath);
 
             Scene scene = SceneManager.GetActiveScene();
             if (scene.path != ScenePath)
@@ -191,7 +202,7 @@ public static class RobotSetupTool
 
     private static GameObject BuildRobotPrefab(bool overwrite, GameObject healthPickup, GameObject ammoPickup)
     {
-        GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(RobotPrefabPath);
+        GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(OldProtbotPrefabPath);
         if (existing != null && !overwrite) return existing;
 
         Material body = GetMaterial("RobotBody", false, new Color(0.85f, 0.62f, 0.12f));   // hazard yellow
@@ -202,7 +213,7 @@ public static class RobotSetupTool
         Material bullet = GetMaterial("EnemyBullet", true, new Color(1f, 0.2f, 0.1f));
         Material explosion = GetMaterial("RobotExplosion", true, new Color(1f, 0.6f, 0.15f));
 
-        GameObject root = new GameObject("Robot");
+        GameObject root = new GameObject("OldProtbot");
         try
         {
             // Boxy yellow robot on treads.
@@ -268,13 +279,128 @@ public static class RobotSetupTool
             so.FindProperty("ammoPickupPrefab").objectReferenceValue = ammoPickup;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, RobotPrefabPath);
-            Debug.Log($"[FinalShift] Robot prefab saved to {RobotPrefabPath}.");
+            GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, OldProtbotPrefabPath);
+            Debug.Log($"[FinalShift] OldProtbot prefab saved to {OldProtbotPrefabPath}.");
             return saved;
         }
         finally
         {
             Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>
+    /// Switches the Robot prefab to Kalman's model: removes the placeholder boxes, puts a convex mesh collider
+    /// on every model piece (they become loose physics pieces on death), and fires bullets from the
+    /// model's muzzle object.
+    /// </summary>
+    private static void SetUpRobotModelPrefab()
+    {
+        GameObject contents = PrefabUtility.LoadPrefabContents(RobotPrefabPath);
+        try
+        {
+            Transform root = contents.transform;
+            RobotEnemy robot = contents.GetComponent<RobotEnemy>();
+            if (robot == null) { Debug.LogError("[FinalShift] Robot prefab has no RobotEnemy."); return; }
+
+            foreach (string partName in PlaceholderParts)
+            {
+                Transform part = root.Find(partName);
+                if (part != null) Object.DestroyImmediate(part.gameObject);
+            }
+
+            // The model: the remaining child that has renderers.
+            Transform model = null;
+            foreach (Transform child in root)
+                if (child.GetComponentInChildren<Renderer>(true) != null) { model = child; break; }
+            if (model == null) { Debug.LogError("[FinalShift] No model found under the Robot prefab."); return; }
+
+            Transform muzzle = null;
+            foreach (Transform t in model.GetComponentsInChildren<Transform>(true))
+                if (t.name.ToLowerInvariant().Contains("muzzle")) { muzzle = t; break; }
+            if (muzzle == null) Debug.LogWarning("[FinalShift] No object with 'muzzle' in its name found in the model.");
+
+            // Mesh colliders on every piece (convex, so they can be physics pieces when the robot dies).
+            int colliders = 0;
+            System.Text.StringBuilder log = new System.Text.StringBuilder();
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                Mesh mesh = null;
+                if (r is MeshRenderer && r.TryGetComponent(out MeshFilter mf)) mesh = mf.sharedMesh;
+                else if (r is SkinnedMeshRenderer smr) mesh = smr.sharedMesh;
+                log.Append($"\n  {r.name} ({r.GetType().Name}, mesh {(mesh != null ? mesh.name : "none")})");
+                if (mesh == null) continue; // the muzzle gets one too: robot bullets ignore robot colliders
+
+                MeshCollider mc = r.GetComponent<MeshCollider>();
+                if (mc == null) mc = r.gameObject.AddComponent<MeshCollider>();
+                mc.sharedMesh = mesh;
+                mc.convex = true;
+                colliders++;
+            }
+
+            // Muzzle flash light on the muzzle.
+            Light flash = null;
+            if (muzzle != null)
+            {
+                Transform existing = muzzle.Find("MuzzleFlash");
+                flash = existing != null ? existing.GetComponent<Light>() : null;
+                if (flash == null)
+                {
+                    flash = new GameObject("MuzzleFlash").AddComponent<Light>();
+                    flash.transform.SetParent(muzzle, false);
+                    flash.type = LightType.Point;
+                    flash.color = new Color(1f, 0.35f, 0.2f);
+                    flash.range = 5f;
+                    flash.intensity = 4f;
+                    flash.shadows = LightShadows.None;
+                }
+                flash.enabled = false;
+            }
+
+            // Size the NavMesh agent and the eye (line of sight) to the model.
+            Bounds bounds = new Bounds(root.position, Vector3.zero);
+            bool first = true;
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                if (first) { bounds = r.bounds; first = false; }
+                else bounds.Encapsulate(r.bounds);
+            }
+            Transform eye = root.Find("Eye");
+            if (eye == null)
+            {
+                eye = new GameObject("Eye").transform;
+                eye.SetParent(root, false);
+            }
+            eye.position = new Vector3(bounds.center.x, bounds.min.y + bounds.size.y * 0.85f, bounds.center.z);
+
+            NavMeshAgent agent = contents.GetComponent<NavMeshAgent>();
+            if (agent != null)
+            {
+                agent.height = Mathf.Max(0.5f, bounds.max.y - root.position.y);
+                agent.radius = Mathf.Clamp(Mathf.Max(bounds.extents.x, bounds.extents.z), 0.3f, 1.2f);
+            }
+
+            SerializedObject so = new SerializedObject(robot);
+            so.FindProperty("eye").objectReferenceValue = eye;
+            so.FindProperty("head").objectReferenceValue = null;
+            so.FindProperty("arms").objectReferenceValue = null;
+            SetArray(so.FindProperty("muzzles"), muzzle != null ? new Object[] { muzzle } : new Object[0]);
+            so.FindProperty("muzzleFlash").objectReferenceValue = flash;
+            SetArray(so.FindProperty("armTips"), new Object[0]);
+            SetArray(so.FindProperty("bodyRenderers"), model.GetComponentsInChildren<Renderer>(true));
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            PrefabUtility.SaveAsPrefabAsset(contents, RobotPrefabPath);
+            Debug.Log($"[FinalShift] Robot model prefab set up: {colliders} mesh colliders, muzzle '{(muzzle != null ? muzzle.name : "none")}', " +
+                      $"model bounds {bounds.size}, agent height {(agent != null ? agent.height : 0f):0.00} radius {(agent != null ? agent.radius : 0f):0.00}. Pieces:{log}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[FinalShift] Robot model setup failed: " + e);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(contents);
         }
     }
 
@@ -316,4 +442,6 @@ public static class RobotSetupTool
         return mat;
     }
 }
+
+
 
