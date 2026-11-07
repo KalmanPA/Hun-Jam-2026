@@ -4293,7 +4293,7 @@ MonoBehaviour:
     burstRate: 25
     ammoCost: 1
     bulletSpeed: 45
-    range: 20
+    range: 15
     damage: 12
     spread: 1.5
     bulletSize: 0.05

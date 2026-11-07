@@ -30,6 +30,29 @@ public class RobotEnemy : MonoBehaviour, IDamageable
              "switches to its combat face and attacks. Shown as a red circle in the Scene view.")]
     [SerializeField] private float detectionRange = 30f;
 
+    public enum MovementMode
+    {
+        [Tooltip("Walks toward the player until in range, then stops.")] Chase,
+        [Tooltip("Never moves, only turns to face the player.")] Stationary,
+        [Tooltip("Moves only along its own left/right axis (as placed), wall to wall, to stay in front of the player.")] BlockAxis,
+    }
+
+    public enum ShotType { Bullet, Laser }
+
+    [Header("Variant")]
+    [SerializeField] private MovementMode movementMode = MovementMode.Chase;
+    [SerializeField] private bool canShoot = true;
+    [Tooltip("Bullet: big slow visible bullets. Laser: instant beam like the player's gear 1 (sniper).")]
+    [SerializeField] private ShotType shotType = ShotType.Bullet;
+    [Tooltip("Shield held in front. While it is held the robot can't be hurt.")]
+    [SerializeField] private EnemyShield shield;
+    [Tooltip("Keep the calm face while the shield is held; switch to the combat face once it's knocked away (gear 3 tutorial).")]
+    [SerializeField] private bool calmFaceWhileShielded;
+
+    [Header("Block axis (BlockAxis movement)")]
+    [Tooltip("How far it can slide each way along its axis if no wall is found.")]
+    [SerializeField] private float maxBlockDistance = 25f;
+
     [Header("Movement")]
     [Tooltip("Starts walking toward the player when farther than this.")]
     [SerializeField] private float attackRange = 16f;
@@ -54,6 +77,11 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     [SerializeField] private float bulletDamage = 8f;
     [SerializeField] private float bulletRange = 45f;
     [SerializeField] private Color bulletColor = new Color(1f, 0.2f, 0.1f);
+    [Tooltip("Laser shots: beam width and how long the beam stays visible.")]
+    [SerializeField] private float laserWidth = 0.12f;
+    [SerializeField] private float laserDuration = 0.25f;
+    [Tooltip("Laser shots: show a thin aiming line during the wind up, so the player sees the shot coming.")]
+    [SerializeField] private bool laserAimLine = true;
 
     [Header("Parts (set by the Robot prefab)")]
     [SerializeField] private Transform eye;
@@ -97,6 +125,18 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     [SerializeField] private float deathDelay = 1f;
     [SerializeField] private GameObject healthPickupPrefab;
     [SerializeField] private GameObject ammoPickupPrefab;
+    [Tooltip("Relative chances of what drops: health only, ammo only, or both.")]
+    [SerializeField, Min(0f)] private float healthOnlyWeight = 1f;
+    [SerializeField, Min(0f)] private float ammoOnlyWeight = 1f;
+    [SerializeField, Min(0f)] private float bothWeight = 1f;
+    [Tooltip("Seconds after the explosion before the drops pop out.")]
+    [SerializeField] private float dropDelay = 0.3f;
+    [Tooltip("Height above the robot's feet the drops appear at.")]
+    [SerializeField] private float dropHeight = 1.8f;
+    [Tooltip("Sideways launch speed range. Small = lands close to the robot.")]
+    [SerializeField] private Vector2 dropSideSpeed = new Vector2(0.5f, 1.8f);
+    [Tooltip("Upward launch speed range.")]
+    [SerializeField] private Vector2 dropUpSpeed = new Vector2(3f, 5f);
     [Tooltip("Seconds the loose pieces stay before they disappear.")]
     [SerializeField] private float debrisLifetime = 4f;
     [SerializeField] private float debrisForce = 6f;
@@ -125,6 +165,9 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     private float faceOffset = float.NaN;
 
     public bool IsDead => dead;
+
+    /// <summary>True while the robot still holds its shield (and can't be hurt).</summary>
+    public bool HasShield => shield != null && shield.IsHeld;
 
     /// <summary>Makes the robot go for the player right away (used by spawners after it lands).</summary>
     public void Alert() { if (!combatLocked) aware = true; }
@@ -228,7 +271,8 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
         canSee = aware && CanSeePlayer();
         aim.Tick(canSee, Time.deltaTime);
-        SlideFace(aware ? combatFaceOffset : calmFaceOffset);
+        bool combatFace = aware && !(calmFaceWhileShielded && HasShield);
+        SlideFace(combatFace ? combatFaceOffset : calmFaceOffset);
 
         if (!aware)
         {
@@ -237,12 +281,60 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         }
 
         FacePlayer();
-        UpdateMovement(distance);
+        switch (movementMode)
+        {
+            case MovementMode.Chase: UpdateMovement(distance); break;
+            case MovementMode.Stationary: Stop(); break;
+            case MovementMode.BlockAxis: UpdateBlocking(); break;
+        }
         UpdateArms();
+        UpdateAimLine();
 
         // In range and standing still: shoot. With no line of sight it is suppressive fire around the player.
-        if (!moving && !firing && Time.time >= nextBurstTime && FacingAngle() <= fireAngle)
+        if (canShoot && !moving && !firing && distance <= attackRange && Time.time >= nextBurstTime && FacingAngle() <= fireAngle)
             StartCoroutine(Burst());
+    }
+
+    // ---------------------------------------------------------------- block axis
+
+    private bool blockReady;
+    private Vector3 blockOrigin;
+    private Vector3 blockAxis;
+    private float blockMin;
+    private float blockMax;
+
+    private void SetUpBlocking()
+    {
+        blockReady = true;
+        blockOrigin = transform.position;
+        blockAxis = transform.right;
+        blockAxis.y = 0f;
+        blockAxis = blockAxis.sqrMagnitude > 0.001f ? blockAxis.normalized : Vector3.right;
+        blockMax = WallDistance(blockAxis);
+        blockMin = -WallDistance(-blockAxis);
+    }
+
+    private float WallDistance(Vector3 dir)
+    {
+        if (NavMesh.Raycast(blockOrigin, blockOrigin + dir * maxBlockDistance, out NavMeshHit hit, NavMesh.AllAreas))
+            return Mathf.Max(0f, Vector3.Dot(hit.position - blockOrigin, dir));
+        return maxBlockDistance;
+    }
+
+    /// <summary>Slides along the block axis to stay between the player and the way forward.</summary>
+    private void UpdateBlocking()
+    {
+        if (!agent.isOnNavMesh) return;
+        if (!blockReady) SetUpBlocking();
+
+        float along = Mathf.Clamp(Vector3.Dot(player.position - blockOrigin, blockAxis), blockMin, blockMax);
+        Vector3 target = blockOrigin + blockAxis * along;
+        if (Time.time >= nextRepathTime && (!agent.hasPath || (agent.destination - target).sqrMagnitude > 0.04f))
+        {
+            nextRepathTime = Time.time + 0.1f;
+            agent.isStopped = false;
+            agent.SetDestination(target);
+        }
     }
 
     private void UpdateMovement(float distance)
@@ -345,9 +437,12 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     {
         firing = true;
 
-        // Telegraph: the arm tips glow before the shots come.
+        // Telegraph: the arm tips glow (and lasers show an aiming line) before the shots come.
         SetArmTips(true);
+        aiming = true;
         yield return new WaitForSeconds(windUp);
+        aiming = false;
+        UpdateAimLine();
 
         for (int i = 0; i < burstCount; i++)
         {
@@ -361,26 +456,68 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         firing = false;
     }
 
+    private Transform CurrentMuzzle()
+    {
+        if (muzzles == null || muzzles.Length == 0) return transform;
+        Transform m = muzzles[nextMuzzle % muzzles.Length];
+        return m != null ? m : transform;
+    }
+
     private void Fire()
     {
-        Transform muzzle = transform;
-        if (muzzles != null && muzzles.Length > 0)
-        {
-            muzzle = muzzles[nextMuzzle % muzzles.Length]; // alternate arms
-            nextMuzzle++;
-        }
+        Transform muzzle = CurrentMuzzle();
+        nextMuzzle++; // alternate muzzles
 
         Vector3 origin = muzzle.position;
         Vector3 point = aim.PickAimPoint(origin, canSee, out _);
         Vector3 dir = point - origin;
         if (dir.sqrMagnitude < 0.0001f) dir = muzzle.forward;
-        EnemyBullet.Spawn(origin, dir, bulletSpeed, bulletDamage, bulletRange, bulletMaterial, bulletColor, bulletSize);
+        if (shotType == ShotType.Laser)
+            EnemyLaser.Fire(origin, dir, bulletRange, bulletDamage, laserWidth, laserDuration, bulletMaterial, bulletColor);
+        else
+            EnemyBullet.Spawn(origin, dir, bulletSpeed, bulletDamage, bulletRange, bulletMaterial, bulletColor, bulletSize);
 
         if (muzzleFlash != null)
         {
             StopCoroutine(nameof(MuzzleFlash));
             StartCoroutine(nameof(MuzzleFlash));
         }
+    }
+
+    // ---------------------------------------------------------------- laser aim line
+
+    private bool aiming;
+    private LineRenderer aimLine;
+
+    private void UpdateAimLine()
+    {
+        bool show = aiming && laserAimLine && shotType == ShotType.Laser && !dead;
+        if (!show)
+        {
+            if (aimLine != null) aimLine.enabled = false;
+            return;
+        }
+
+        if (aimLine == null)
+        {
+            GameObject go = new GameObject("AimLine");
+            go.transform.SetParent(transform, false);
+            aimLine = go.AddComponent<LineRenderer>();
+            aimLine.positionCount = 2;
+            aimLine.useWorldSpace = true;
+            aimLine.sharedMaterial = bulletMaterial;
+            aimLine.startColor = aimLine.endColor = bulletColor;
+            aimLine.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            aimLine.receiveShadows = false;
+        }
+
+        Vector3 origin = CurrentMuzzle().position;
+        Vector3 to = aim.TargetCenter - origin;
+        float length = Mathf.Min(to.magnitude, bulletRange);
+        aimLine.enabled = true;
+        aimLine.SetPosition(0, origin);
+        aimLine.SetPosition(1, origin + to.normalized * length);
+        aimLine.widthMultiplier = laserWidth * 0.15f;
     }
 
     private IEnumerator MuzzleFlash()
@@ -405,8 +542,10 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     {
         if (dead || amount <= 0f) return;
 
-        health -= amount;
         if (!combatLocked) aware = true; // getting shot gives the player away
+        if (HasShield) return;           // invulnerable while holding the shield
+
+        health -= amount;
 
         if (health <= 0f)
         {
@@ -451,6 +590,8 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         StopAllCoroutines();
         RestoreMaterials();
         SetArmTips(false);
+        aiming = false;
+        if (aimLine != null) aimLine.enabled = false;
         if (muzzleFlash != null) muzzleFlash.enabled = false;
         if (agent.isOnNavMesh)
         {
@@ -494,10 +635,26 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
     private void DropPickups()
     {
-        Vector3 basePos = transform.position + Vector3.up * 0.5f;
-        Vector3 side = transform.right * 0.7f;
-        if (healthPickupPrefab != null) Instantiate(healthPickupPrefab, basePos - side, Quaternion.identity);
-        if (ammoPickupPrefab != null) Instantiate(ammoPickupPrefab, basePos + side, Quaternion.identity);
+        // Random pick: health only, ammo only, or both.
+        float total = healthOnlyWeight + ammoOnlyWeight + bothWeight;
+        if (total <= 0f) return;
+        float roll = UnityEngine.Random.value * total;
+        bool dropHealth = roll < healthOnlyWeight || roll >= healthOnlyWeight + ammoOnlyWeight;
+        bool dropAmmo = roll >= healthOnlyWeight;
+
+        // They pop out a moment after the blast and fall like the debris, landing near the robot.
+        Vector3 origin = transform.position + Vector3.up * dropHeight;
+        float angle = UnityEngine.Random.value * 360f;
+        if (dropHealth) LaunchDrop(healthPickupPrefab, origin, angle);
+        if (dropAmmo) LaunchDrop(ammoPickupPrefab, origin, angle + 180f + UnityEngine.Random.Range(-50f, 50f));
+    }
+
+    private void LaunchDrop(GameObject prefab, Vector3 origin, float angleDegrees)
+    {
+        Vector3 dir = Quaternion.Euler(0f, angleDegrees, 0f) * Vector3.forward;
+        Vector3 velocity = dir * UnityEngine.Random.Range(dropSideSpeed.x, dropSideSpeed.y)
+                         + Vector3.up * UnityEngine.Random.Range(dropUpSpeed.x, dropUpSpeed.y);
+        Pickup.Drop(prefab, origin, velocity, dropDelay + UnityEngine.Random.Range(0f, 0.15f));
     }
 
     private void OnDrawGizmos()
@@ -522,5 +679,13 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         Gizmos.DrawWireSphere(transform.position, attackRange);
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, stopRange);
+        if (movementMode == MovementMode.BlockAxis)
+        {
+            // The line it slides along.
+            Vector3 axis = Application.isPlaying && blockReady ? blockAxis : transform.right;
+            Vector3 o = Application.isPlaying && blockReady ? blockOrigin : transform.position;
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(o - axis * maxBlockDistance + Vector3.up * 0.1f, o + axis * maxBlockDistance + Vector3.up * 0.1f);
+        }
     }
 }
