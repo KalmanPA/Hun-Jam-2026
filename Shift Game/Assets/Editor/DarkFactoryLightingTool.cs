@@ -25,8 +25,8 @@ public static class DarkFactoryLightingTool
     private const string ScenePath = "Assets/Scenes/Game.unity";
     private const string MaterialFolder = "Assets/ProtMaterials/Level";
     private const string LightsRootName = "== Factory Lights (generated) ==";
-    private const string ShaderName = "Final Shift/Flat Triplanar Grime";
-    private const string GrimePath = "Assets/ShaderTest/Textures/Grime64.png";
+    internal const string ShaderName = "Final Shift/Flat Triplanar Grime";
+    internal const string GrimePath = "Assets/ShaderTest/Textures/Grime64.png";
 
     // Bump this to make the tool run once more automatically on every machine.
     private const int AutoRunVersion = 1;
@@ -34,7 +34,7 @@ public static class DarkFactoryLightingTool
 
     // ---- Look ----
     private static readonly Color FogColor = new Color(0.030f, 0.028f, 0.026f);
-    private static readonly Color AmbientColor = new Color(0.045f, 0.043f, 0.042f);
+    internal static readonly Color AmbientColor = new Color(0.045f, 0.043f, 0.042f);
     private const float FogStart = 8f;
     private const float FogEnd = 38f;
 
@@ -49,7 +49,7 @@ public static class DarkFactoryLightingTool
     private static readonly Color WarmLight = new Color(1.00f, 0.62f, 0.30f);  // sodium
     private static readonly Color ColdLight = new Color(0.70f, 0.85f, 1.00f);  // tired fluorescent
 
-    private enum Kind { Floor, Wall, Ceiling, Pillar, Block, Stairs, Door, Lift }
+    internal enum Kind { Floor, Wall, Ceiling, Pillar, Block, Stairs, Door, Lift }
 
     private struct Surface
     {
@@ -134,7 +134,7 @@ public static class DarkFactoryLightingTool
         return EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 
-    private static void ApplyEnvironment(Scene scene)
+    internal static void ApplyEnvironment(Scene scene)
     {
         // Underground: no sky, near-black flat ambient, no sky reflections, thick dark fog.
         RenderSettings.skybox = null;
@@ -255,7 +255,7 @@ public static class DarkFactoryLightingTool
         return Kind.Block;                                                    // chunky: machinery, platforms
     }
 
-    private static Material LevelMaterial(Kind kind)
+    internal static Material LevelMaterial(Kind kind)
     {
         if (!AssetDatabase.IsValidFolder(MaterialFolder))
             AssetDatabase.CreateFolder("Assets/ProtMaterials", "Level");
@@ -293,7 +293,7 @@ public static class DarkFactoryLightingTool
         return mat;
     }
 
-    private static Material UnlitMaterial(string name, Color colour)
+    internal static Material UnlitMaterial(string name, Color colour)
     {
         if (!AssetDatabase.IsValidFolder(MaterialFolder))
             AssetDatabase.CreateFolder("Assets/ProtMaterials", "Level");
@@ -413,7 +413,7 @@ public static class DarkFactoryLightingTool
         return false;
     }
 
-    private static void BuildLamp(Transform parent, int index, Vector3 pos, bool cold, bool flicker, bool shadows,
+    internal static void BuildLamp(Transform parent, int index, Vector3 pos, bool cold, bool flicker, bool shadows,
                                   Material housingMat, Material bulbMat)
     {
         GameObject lamp = new GameObject("Lamp " + index + (cold ? " (cold)" : " (warm)") + (flicker ? " flicker" : ""));

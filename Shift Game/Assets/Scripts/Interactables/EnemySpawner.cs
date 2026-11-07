@@ -42,6 +42,13 @@ public class EnemySpawner : MonoBehaviour
     [Tooltip("Off: all of type 1, then type 2, and so on. On: random order.")]
     [SerializeField] private bool shuffleOrder;
 
+    [Header("Endless (boss fight)")]
+    [Tooltip("Never runs out: keeps dropping enemies forever and never closes. The counts above become weights " +
+             "(count 2 drops twice as often as count 1).")]
+    [SerializeField] private bool endless;
+    [Tooltip("Endless: stops dropping while this many of its enemies are still alive.")]
+    [SerializeField, Min(1)] private int maxAlive = 3;
+
     [Header("Drop")]
     [Tooltip("Where enemies appear (inside the chute). They fall straight down from here.")]
     [SerializeField] private Transform spawnPoint;
@@ -113,8 +120,81 @@ public class EnemySpawner : MonoBehaviour
         StartCoroutine(Run());
     }
 
+    /// <summary>Stops spawning for good (e.g. the boss died) and closes the hatch.</summary>
+    public void StopSpawning()
+    {
+        if (state == State.Done || state == State.Closing) return;
+        StopAllCoroutines();
+        state = State.Closing;
+        SetLamps(false);
+        StartCoroutine(CloseTrapdoor());
+    }
+
+    private readonly List<GameObject> endlessSpawned = new List<GameObject>();
+
+    private IEnumerator RunEndless()
+    {
+        Coroutine blink = StartCoroutine(Blink());
+        yield return new WaitForSeconds(firstSpawnDelay);
+        while (true)
+        {
+            endlessSpawned.RemoveAll(go => go == null || (go.TryGetComponent(out RobotEnemy r) && r.IsDead));
+            GameObject prefab = PickWeighted();
+            if (prefab == null) yield break;
+
+            // Lamps blink while there's room for another enemy, and go dark while the spawner waits.
+            bool room = endlessSpawned.Count < maxAlive;
+            if (room && blink == null) blink = StartCoroutine(Blink());
+            if (!room && blink != null) { StopCoroutine(blink); blink = null; SetLamps(false); }
+
+            if (room)
+            {
+                EnemyDrop drop = Spawn(prefab);
+                if (drop != null) endlessSpawned.Add(drop.gameObject);
+                yield return new WaitForSeconds(delayBetweenSpawns);
+            }
+            else yield return new WaitForSeconds(0.5f);
+        }
+    }
+
+    private GameObject PickWeighted()
+    {
+        int total = TotalToSpawn;
+        if (total <= 0) return null;
+        int roll = Random.Range(0, total);
+        foreach (SpawnEntry e in enemies)
+        {
+            if (e == null || e.prefab == null || e.count <= 0) continue;
+            if (roll < e.count) return e.prefab;
+            roll -= e.count;
+        }
+        return null;
+    }
+
+    private IEnumerator CloseTrapdoor()
+    {
+        if (trapdoor != null)
+        {
+            GameAudio.Play(SoundId.SpawnerHatch, trapdoor.position);
+            Vector3 from = trapdoor.localPosition, to = trapdoorOpenPos + trapdoorSlide;
+            for (float t = 0f; t < 1f; t += Time.deltaTime / Mathf.Max(0.01f, trapdoorCloseTime))
+            {
+                trapdoor.localPosition = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t));
+                yield return null;
+            }
+            trapdoor.localPosition = to;
+        }
+        state = State.Done;
+    }
+
     private IEnumerator Run()
     {
+        if (endless)
+        {
+            yield return RunEndless();
+            yield break;
+        }
+
         List<GameObject> queue = BuildQueue();
         Coroutine blink = StartCoroutine(Blink());
 
@@ -134,18 +214,7 @@ public class EnemySpawner : MonoBehaviour
         state = State.Closing;
         StopCoroutine(blink);
         SetLamps(false);
-        if (trapdoor != null)
-        {
-            GameAudio.Play(SoundId.SpawnerHatch, trapdoor.position);
-            Vector3 from = trapdoorOpenPos, to = trapdoorOpenPos + trapdoorSlide;
-            for (float t = 0f; t < 1f; t += Time.deltaTime / Mathf.Max(0.01f, trapdoorCloseTime))
-            {
-                trapdoor.localPosition = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t));
-                yield return null;
-            }
-            trapdoor.localPosition = to;
-        }
-        state = State.Done;
+        yield return CloseTrapdoor();
     }
 
     private List<GameObject> BuildQueue()
@@ -242,7 +311,7 @@ public class EnemySpawner : MonoBehaviour
             }
         }
 
-        string label = $"Spawner: {TotalToSpawn} enemies";
+        string label = endless ? $"Endless spawner (max {maxAlive} alive)" : $"Spawner: {TotalToSpawn} enemies";
         if (!any) label += "\nnothing starts it";
         Handles.Label(transform.position + Vector3.up * 1.5f, label);
     }
