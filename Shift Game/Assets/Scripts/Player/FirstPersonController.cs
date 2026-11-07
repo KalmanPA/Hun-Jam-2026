@@ -21,6 +21,9 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] private float sprintSpeed = 7f;
     [SerializeField] private float jumpHeight = 1.1f;
     [SerializeField] private float gravity = -20f;
+    [Tooltip("How fast pushes (like the gear 4 rocket jump) slow down on the ground and in the air.")]
+    [SerializeField] private float groundPushDrag = 14f;
+    [SerializeField] private float airPushDrag = 2.5f;
 
     [Header("Look")]
     [SerializeField] private float mouseSensitivity = 0.1f;
@@ -38,6 +41,16 @@ public class FirstPersonController : MonoBehaviour
 
     /// <summary>When true the mouse no longer turns the camera (used while moving the gear stick).</summary>
     public bool LookLocked { get; set; }
+
+    private Vector3 pushVelocity;
+
+    /// <summary>Adds a one-off push (m/s), e.g. the gear 4 rocket jump.</summary>
+    public void AddImpulse(Vector3 velocityChange)
+    {
+        if (velocityChange.y > 0f && verticalVelocity < 0f) verticalVelocity = 0f;
+        verticalVelocity += velocityChange.y;
+        pushVelocity += new Vector3(velocityChange.x, 0f, velocityChange.z);
+    }
 
     private void Awake()
     {
@@ -110,16 +123,20 @@ public class FirstPersonController : MonoBehaviour
         float speed = sprintAction.IsPressed() ? sprintSpeed : walkSpeed;
         Vector3 horizontal = (transform.right * input.x + transform.forward * input.y) * speed;
 
-        if (controller.isGrounded)
+        bool grounded = controller.isGrounded;
+        if (grounded)
         {
-            verticalVelocity = -2f; // keep snapped to ground
+            if (verticalVelocity < 0f) verticalVelocity = -2f; // keep snapped to ground (but don't cancel an upward push)
             if (jumpAction.WasPressedThisFrame())
                 verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
         verticalVelocity += gravity * Time.deltaTime;
 
-        Vector3 velocity = horizontal + Vector3.up * verticalVelocity;
-        controller.Move(velocity * Time.deltaTime);
+        Vector3 velocity = horizontal + pushVelocity + Vector3.up * verticalVelocity;
+        CollisionFlags flags = controller.Move(velocity * Time.deltaTime);
+
+        if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f; // bonk the ceiling
+        pushVelocity = Vector3.MoveTowards(pushVelocity, Vector3.zero, (grounded ? groundPushDrag : airPushDrag) * Time.deltaTime);
     }
 
     private static void LockCursor(bool locked)
