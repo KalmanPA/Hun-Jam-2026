@@ -12,6 +12,16 @@ public class DoorTriggerZone : MonoBehaviour
 
     public bool PlayerInside { get; private set; }
 
+    /// <summary>True if the point is inside the box, ignoring height (rooms are treated as tall columns).</summary>
+    public bool ContainsXZ(Vector3 worldPoint)
+    {
+        BoxCollider b = box != null ? box : GetComponent<BoxCollider>();
+        if (b == null) return false;
+        Vector3 local = transform.InverseTransformPoint(worldPoint) - b.center;
+        Vector3 half = b.size * 0.5f;
+        return Mathf.Abs(local.x) <= half.x && Mathf.Abs(local.z) <= half.z;
+    }
+
     private void Awake()
     {
         box = GetComponent<BoxCollider>();

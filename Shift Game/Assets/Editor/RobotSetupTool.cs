@@ -42,7 +42,6 @@ public static class RobotSetupTool
                 Debug.LogWarning("[FinalShift] Robot setup skipped: editor is in play mode.");
                 return;
             }
-            BuildPrefabs(true);
             SetUpRobotModelPrefab();
             AssetDatabase.SaveAssets();
             Debug.Log("[FinalShift] Robot model setup finished.");
@@ -309,11 +308,22 @@ public static class RobotSetupTool
                 if (part != null) Object.DestroyImmediate(part.gameObject);
             }
 
-            // The model: the remaining child that has renderers.
+            // The model: the active child that has renderers. Inactive model children are old,
+            // replaced models and are removed.
             Transform model = null;
+            System.Collections.Generic.List<GameObject> oldModels = new System.Collections.Generic.List<GameObject>();
             foreach (Transform child in root)
-                if (child.GetComponentInChildren<Renderer>(true) != null) { model = child; break; }
-            if (model == null) { Debug.LogError("[FinalShift] No model found under the Robot prefab."); return; }
+            {
+                if (child.GetComponentInChildren<Renderer>(true) == null) continue;
+                if (child.gameObject.activeSelf && model == null) model = child;
+                else if (!child.gameObject.activeSelf) oldModels.Add(child.gameObject);
+            }
+            if (model == null) { Debug.LogError("[FinalShift] No active model found under the Robot prefab."); return; }
+            foreach (GameObject old in oldModels)
+            {
+                Debug.Log($"[FinalShift] Removing old inactive model '{old.name}' from the Robot prefab.");
+                Object.DestroyImmediate(old);
+            }
 
             Transform muzzle = null;
             foreach (Transform t in model.GetComponentsInChildren<Transform>(true))
@@ -388,6 +398,15 @@ public static class RobotSetupTool
             so.FindProperty("muzzleFlash").objectReferenceValue = flash;
             SetArray(so.FindProperty("armTips"), new Object[0]);
             SetArray(so.FindProperty("bodyRenderers"), model.GetComponentsInChildren<Renderer>(true));
+            Renderer faceRenderer = null;
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+                if (r.name.ToLowerInvariant() == "face") { faceRenderer = r; break; }
+            if (faceRenderer == null)
+                foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+                    if (r.name.ToLowerInvariant().Contains("face")) { faceRenderer = r; break; }
+            if (faceRenderer == null) Debug.LogWarning("[FinalShift] No object called 'face' found in the model.");
+            so.FindProperty("face").objectReferenceValue = faceRenderer;
+            log.Append($"\n  face renderer: {(faceRenderer != null ? faceRenderer.name : "none")}");
             so.ApplyModifiedPropertiesWithoutUndo();
 
             PrefabUtility.SaveAsPrefabAsset(contents, RobotPrefabPath);
@@ -442,6 +461,8 @@ public static class RobotSetupTool
         return mat;
     }
 }
+
+
 
 
 

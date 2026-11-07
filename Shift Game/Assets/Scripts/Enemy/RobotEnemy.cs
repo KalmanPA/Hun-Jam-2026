@@ -10,8 +10,10 @@ using UnityEngine.AI;
 ///  - Walks around obstacles on the NavMesh until the player is in range, then stops.
 ///  - Never flanks: if the player hides behind cover it stays put and keeps shooting around them.
 ///  - Where each shot goes is decided by <see cref="EnemyAim"/> (misses often, hits sometimes).
-///  - Takes damage through <see cref="IDamageable"/>. On death it explodes into loose pieces
-///    and drops a health and an ammo pickup.
+///  - Face expression (the face material's texture X offset): calm before noticing the player or while
+///    combat is locked (cutscenes), angry in combat, and a dying face when health runs out.
+///  - Takes damage through <see cref="IDamageable"/>. At zero health it freezes with the dying face,
+///    then after deathDelay explodes into loose pieces and drops a health and an ammo pickup.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(EnemyAim))]
@@ -23,8 +25,9 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     [Header("Health")]
     [SerializeField] private float maxHealth = 40f;
 
-    [Header("Senses")]
-    [Tooltip("Notices the player inside this distance (or when shot).")]
+    [Header("Player detection")]
+    [Tooltip("Player detection range: the robot notices the player inside this distance (or when shot), " +
+             "switches to its combat face and attacks. Shown as a red circle in the Scene view.")]
     [SerializeField] private float detectionRange = 30f;
 
     [Header("Movement")]
@@ -71,7 +74,27 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     [SerializeField] private Material hitFlashMaterial;
     [SerializeField] private Material explosionMaterial;
 
+    [Header("Face")]
+    [Tooltip("The model's face renderer (set by the Robot prefab setup).")]
+    [SerializeField] private Renderer face;
+    [Tooltip("Name of the face material whose texture X offset picks the expression.")]
+    [SerializeField] private string faceMaterialName = "Deanall";
+    [Tooltip("Not in combat: before the player is noticed, or while combat is locked (cutscenes).")]
+    [SerializeField] private float calmFaceOffset = 0f;
+    [SerializeField] private float combatFaceOffset = 0.34f;
+    [Tooltip("Shown while the robot freezes before it explodes.")]
+    [SerializeField] private float dyingFaceOffset = 0.67f;
+    [Tooltip("Seconds the face takes to slide from calm to combat when the player is noticed.")]
+    [SerializeField] private float combatFaceChangeTime = 0.6f;
+
+    [Header("Combat lock")]
+    [Tooltip("While on, the robot stays calm: it doesn't notice the player, move or shoot (e.g. the intro cutscene). " +
+             "Scripts can switch it with CombatLocked.")]
+    [SerializeField] private bool combatLocked;
+
     [Header("Death")]
+    [Tooltip("Seconds the robot freezes (with the dying face) before it explodes.")]
+    [SerializeField] private float deathDelay = 1f;
     [SerializeField] private GameObject healthPickupPrefab;
     [SerializeField] private GameObject ammoPickupPrefab;
     [Tooltip("Seconds the loose pieces stay before they disappear.")]
@@ -98,7 +121,24 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     private Material[][] originalMaterials;
     private Coroutine flashRoutine;
 
+    private Material faceMaterial;
+    private float faceOffset = float.NaN;
+
     public bool IsDead => dead;
+
+    /// <summary>Makes the robot go for the player right away (used by spawners after it lands).</summary>
+    public void Alert() { if (!combatLocked) aware = true; }
+
+    /// <summary>While true the robot stays out of combat (calm face, no noticing, moving or shooting). For cutscenes.</summary>
+    public bool CombatLocked
+    {
+        get => combatLocked;
+        set
+        {
+            combatLocked = value;
+            if (value) aware = false;
+        }
+    }
     public float Health => health;
 
     private void Awake()
@@ -114,7 +154,48 @@ public class RobotEnemy : MonoBehaviour, IDamageable
             bodyRenderers = GetComponentsInChildren<Renderer>();
         originalMaterials = new Material[bodyRenderers.Length][];
         for (int i = 0; i < bodyRenderers.Length; i++)
-            originalMaterials[i] = bodyRenderers[i].sharedMaterials;
+            originalMaterials[i] = bodyRenderers[i] != null ? bodyRenderers[i].sharedMaterials : null;
+
+        SetUpFace();
+    }
+
+    // ---------------------------------------------------------------- face
+
+    private void SetUpFace()
+    {
+        if (face == null) return;
+
+        // Give this robot its own copy of the face material, so each robot shows its own expression.
+        Material[] mats = face.materials;
+        int index = 0;
+        for (int i = 0; i < mats.Length; i++)
+            if (mats[i] != null && mats[i].name.StartsWith(faceMaterialName)) { index = i; break; }
+        faceMaterial = mats.Length > 0 ? mats[index] : null;
+
+        // The hit flash restores materials from this list, so it must point at the copy too.
+        for (int i = 0; i < bodyRenderers.Length; i++)
+            if (bodyRenderers[i] == face) originalMaterials[i] = face.sharedMaterials;
+
+        SetFace(calmFaceOffset);
+    }
+
+    /// <summary>Sets the face offset right away.</summary>
+    private void SetFace(float xOffset)
+    {
+        if (faceMaterial == null || Mathf.Approximately(faceOffset, xOffset)) return;
+        faceOffset = xOffset;
+        Vector2 offset = faceMaterial.mainTextureOffset;
+        offset.x = xOffset;
+        faceMaterial.mainTextureOffset = offset;
+    }
+
+    /// <summary>Slides the face offset toward <paramref name="xOffset"/>, from calm to combat in combatFaceChangeTime.</summary>
+    private void SlideFace(float xOffset)
+    {
+        if (faceMaterial == null || float.IsNaN(faceOffset)) { SetFace(xOffset); return; }
+        float distance = Mathf.Abs(combatFaceOffset - calmFaceOffset);
+        float speed = combatFaceChangeTime > 0f && distance > 0f ? distance / combatFaceChangeTime : float.PositiveInfinity;
+        SetFace(Mathf.MoveTowards(faceOffset, xOffset, speed * Time.deltaTime));
     }
 
     private void OnEnable() => Alive.Add(this);
@@ -143,10 +224,11 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         bool playerAlive = playerHealth == null || !playerHealth.IsDead;
         float distance = FlatDistance(transform.position, player.position);
         if (distance <= detectionRange) aware = true;
-        if (!playerAlive) aware = false;
+        if (!playerAlive || combatLocked) aware = false;
 
         canSee = aware && CanSeePlayer();
         aim.Tick(canSee, Time.deltaTime);
+        SlideFace(aware ? combatFaceOffset : calmFaceOffset);
 
         if (!aware)
         {
@@ -324,7 +406,7 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         if (dead || amount <= 0f) return;
 
         health -= amount;
-        aware = true; // getting shot gives the player away
+        if (!combatLocked) aware = true; // getting shot gives the player away
 
         if (health <= 0f)
         {
@@ -364,12 +446,30 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
     private void Die()
     {
+        // Freeze with the dying face, then explode after deathDelay.
         dead = true;
         StopAllCoroutines();
         RestoreMaterials();
         SetArmTips(false);
         if (muzzleFlash != null) muzzleFlash.enabled = false;
-        if (agent.isOnNavMesh) agent.ResetPath();
+        if (agent.isOnNavMesh)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+            agent.velocity = Vector3.zero;
+        }
+        SetFace(dyingFaceOffset);
+        StartCoroutine(ExplodeAfterDelay());
+    }
+
+    private IEnumerator ExplodeAfterDelay()
+    {
+        if (deathDelay > 0f) yield return new WaitForSeconds(deathDelay);
+        Explode();
+    }
+
+    private void Explode()
+    {
         agent.enabled = false;
 
         Vector3 center = transform.position + Vector3.up * 0.9f;
@@ -400,13 +500,27 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         if (ammoPickupPrefab != null) Instantiate(ammoPickupPrefab, basePos + side, Quaternion.identity);
     }
 
+    private void OnDrawGizmos()
+    {
+        // Player detection range, always visible in the Scene view (flat circle on the floor).
+        Gizmos.color = new Color(1f, 0.15f, 0.1f, 0.8f);
+        const int segments = 48;
+        Vector3 c = transform.position + Vector3.up * 0.05f;
+        Vector3 prev = c + new Vector3(detectionRange, 0f, 0f);
+        for (int i = 1; i <= segments; i++)
+        {
+            float a = i * Mathf.PI * 2f / segments;
+            Vector3 next = c + new Vector3(Mathf.Cos(a) * detectionRange, 0f, Mathf.Sin(a) * detectionRange);
+            Gizmos.DrawLine(prev, next);
+            prev = next;
+        }
+    }
+
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, attackRange);
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, stopRange);
-        Gizmos.color = new Color(1f, 0.4f, 0f, 0.5f);
-        Gizmos.DrawWireSphere(transform.position, detectionRange);
     }
 }

@@ -81,6 +81,7 @@ public static class InteractablesSetupTool
             BuildButton();
             BuildTarget();
             BuildTriggerZone();
+            CableSetupTool.UpgradePrefabs();
             AssetDatabase.SaveAssets();
             Debug.Log("[FinalShift] Interactables prefabs built in " + PrefabFolder);
         }
@@ -494,16 +495,16 @@ public static class InteractablesSetupTool
         GameObject buttonPrefab = Load("DoorButton");
         GameObject targetPrefab = Load("DoorTarget");
 
-        // 1) Walk-in door: opens while the player stands in either zone, closes again when they leave.
+        // 1) Starts open and shuts behind the player once they're inside (Final Shift > Cables adds the lockdown room).
         SlidingDoor door1 = Place(doorPrefab, group, new Vector3(doorX[0], 0f, z), Quaternion.identity).GetComponent<SlidingDoor>();
         door1.name = "SlidingDoor (trigger)";
-        GameObject zoneFront = Place(zonePrefab, group, new Vector3(doorX[0], 1.5f, z + 2.6f), Quaternion.identity);
-        zoneFront.name = "DoorTriggerZone (front)";
         GameObject zoneBack = Place(zonePrefab, group, new Vector3(doorX[0], 1.5f, z - 2.4f), Quaternion.identity);
         zoneBack.name = "DoorTriggerZone (inside)";
         zoneBack.transform.localScale = new Vector3(4f, 3f, 3.5f);
-        SetDoor(door1, SlidingDoor.OpenCondition.PlayerEntersTrigger, "triggerZones", false,
-            zoneFront.GetComponent<DoorTriggerZone>(), zoneBack.GetComponent<DoorTriggerZone>());
+        SetDoor(door1, SlidingDoor.OpenCondition.None, "closeTriggers", true, zoneBack.GetComponent<DoorTriggerZone>());
+        SerializedObject door1So = new SerializedObject(door1);
+        door1So.FindProperty("startOpen").boolValue = true;
+        door1So.ApplyModifiedPropertiesWithoutUndo();
 
         // 2) Button door: shoot both buttons within 4 seconds of each other.
         SlidingDoor door2 = Place(doorPrefab, group, new Vector3(doorX[1], 0f, z), Quaternion.identity).GetComponent<SlidingDoor>();
