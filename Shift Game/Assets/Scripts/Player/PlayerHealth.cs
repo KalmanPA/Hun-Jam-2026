@@ -1,0 +1,35 @@
+using System;
+using UnityEngine;
+
+/// <summary>
+/// Player health. The gear weapon reads it to fill the health bar on the gun (diegetic UI).
+/// </summary>
+public class PlayerHealth : MonoBehaviour, IDamageable
+{
+    [SerializeField] private float maxHealth = 100f;
+
+    public float Max => maxHealth;
+    public float Current { get; private set; }
+    public float Normalized => maxHealth > 0f ? Current / maxHealth : 0f;
+    public bool IsDead => Current <= 0f;
+
+    public event Action Died;
+
+    private void Awake()
+    {
+        Current = maxHealth;
+    }
+
+    public void TakeDamage(float amount)
+    {
+        if (IsDead || amount <= 0f) return;
+        Current = Mathf.Max(0f, Current - amount);
+        if (IsDead) Died?.Invoke();
+    }
+
+    public void Heal(float amount)
+    {
+        if (IsDead || amount <= 0f) return;
+        Current = Mathf.Min(maxHealth, Current + amount);
+    }
+}

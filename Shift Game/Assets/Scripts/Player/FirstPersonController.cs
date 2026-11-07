@@ -36,6 +36,9 @@ public class FirstPersonController : MonoBehaviour
     private float pitch;
     private float verticalVelocity;
 
+    /// <summary>When true the mouse no longer turns the camera (used while moving the gear stick).</summary>
+    public bool LookLocked { get; set; }
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -73,7 +76,7 @@ public class FirstPersonController : MonoBehaviour
     private void Update()
     {
         HandleCursor();
-        if (Cursor.lockState == CursorLockMode.Locked)
+        if (Cursor.lockState == CursorLockMode.Locked && !LookLocked)
             HandleLook();
         HandleMovement();
     }
