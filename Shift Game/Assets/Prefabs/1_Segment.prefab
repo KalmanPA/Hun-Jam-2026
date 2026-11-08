@@ -11536,7 +11536,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8062850194993769879, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
       propertyPath: firstSpawnDelay
-      value: 12
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 8062850194993769879, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
+      propertyPath: delayBetweenSpawns
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8062850194993769879, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
       propertyPath: enemies.Array.size
@@ -12180,7 +12184,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8062850194993769879, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
       propertyPath: firstSpawnDelay
-      value: 5
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8062850194993769879, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
+      propertyPath: delayBetweenSpawns
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8790599529634040616, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -12192,7 +12200,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8790599529634040616, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -9.889614
+      value: -13.64
       objectReference: {fileID: 0}
     - target: {fileID: 8790599529634040616, guid: 7534e03aa0d61cc4ea33b152a954d44a, type: 3}
       propertyPath: m_LocalRotation.w

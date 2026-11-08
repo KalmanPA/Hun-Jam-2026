@@ -1154,7 +1154,7 @@ MonoBehaviour:
   activeMaterial: {fileID: 2100000, guid: bdb5da18c7708d74b84b1e59ce7c3cff, type: 2}
   builtLinks: []
   builtCables: []
-  builtSignature: 0
+  builtSignature: 15185327
 --- !u!1 &6598976837118400881
 GameObject:
   m_ObjectHideFlags: 0
