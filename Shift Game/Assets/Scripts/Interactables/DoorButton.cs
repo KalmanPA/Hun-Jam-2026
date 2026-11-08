@@ -42,6 +42,7 @@ public class DoorButton : MonoBehaviour, IDamageable
     public void Press()
     {
         if (locked) return;
+        if (!IsPressed) GameAudio.Play(SoundId.ButtonPress, transform.position);
         IsPressed = true;
         timer = pressedTime;
     }
@@ -58,7 +59,11 @@ public class DoorButton : MonoBehaviour, IDamageable
         if (IsPressed && !locked)
         {
             timer -= Time.deltaTime;
-            if (timer <= 0f) IsPressed = false;
+            if (timer <= 0f)
+            {
+                IsPressed = false;
+                GameAudio.Play(SoundId.ButtonRelease, transform.position);
+            }
         }
 
         // Blink red in the last second before popping back up.

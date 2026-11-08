@@ -58,6 +58,10 @@ public class SlidingDoor : MonoBehaviour
     private bool startOpenActive;
     private bool closedByTrigger;
     private Material lampShown;
+    private bool wasOpen;
+    private bool unlockedOnce;
+    private SoundHandle motorSound;
+    private float motorStopTime = -1f;
 
     public OpenCondition Condition => openCondition;
     public bool IsOpen { get; private set; }
@@ -71,6 +75,7 @@ public class SlidingDoor : MonoBehaviour
         if (startOpen) openAmount = 1f;
         ApplyPanels();
         ShowLamp(startOpen ? lampOpenMaterial : lampClosedMaterial);
+        wasOpen = startOpen;
     }
 
     private void Update()
@@ -94,9 +99,30 @@ public class SlidingDoor : MonoBehaviour
         }
         IsOpen = startOpenActive || latched || canOpen;
 
+        // Sound: a chime the first time the buttons/targets unlock it, and the motor whenever it starts moving.
+        if (canOpen && !unlockedOnce)
+        {
+            unlockedOnce = true;
+            GameAudio.Play(SoundId.DoorUnlock, transform.position + Vector3.up * 2f);
+        }
+        if (IsOpen != wasOpen)
+        {
+            wasOpen = IsOpen;
+            motorSound.Stop(0.15f);
+            motorSound = GameAudio.Play(IsOpen ? SoundId.DoorOpen : SoundId.DoorClose, transform.position + Vector3.up * 1.5f);
+            motorStopTime = -1f;
+        }
+
         float step = slideDistance > 0f ? slideSpeed / slideDistance * Time.deltaTime : 1f;
         openAmount = Mathf.MoveTowards(openAmount, IsOpen ? 1f : 0f, step);
         ApplyPanels();
+
+        // The motor clips are longer than the slide: let the sound ring a moment after the panels stop, then fade it.
+        if (motorSound.IsPlaying && Mathf.Approximately(openAmount, IsOpen ? 1f : 0f))
+        {
+            if (motorStopTime < 0f) motorStopTime = Time.time + 0.5f;
+            else if (Time.time >= motorStopTime) { motorSound.Stop(0.8f); motorStopTime = float.MaxValue; }
+        }
 
         if (IsOpen) ShowLamp(lampOpenMaterial);
         else if (InLockdown && lampLockdownMaterial != null) ShowLamp(Mathf.Repeat(Time.time, 0.6f) < 0.3f ? lampLockdownMaterial : lampClosedMaterial);

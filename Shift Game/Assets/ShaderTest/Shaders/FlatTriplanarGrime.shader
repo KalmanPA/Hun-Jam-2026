@@ -65,6 +65,9 @@ Shader "Final Shift/Flat Triplanar Grime"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
 
+            // Global multiplier on every material's Grime Strength (0.25 = 75% less grime noise).
+            #define GRIME_GLOBAL_SCALE 0.25h
+
             TEXTURE2D(_GrimeTex);
             SAMPLER(sampler_point_repeat);
 
@@ -215,7 +218,8 @@ Shader "Final Shift/Flat Triplanar Grime"
 
                 // Flat colour with world-space grime multiplied on top.
                 half grime = SampleGrimeTriplanar(IN.triPos, IN.triNormal);
-                half3 albedo = _BaseColor.rgb * lerp(1.0h, grime, _GrimeStrength);
+                // GRIME_GLOBAL_SCALE tones the noise down on every material at once (Kalman: 75% less noise).
+                half3 albedo = _BaseColor.rgb * lerp(1.0h, grime, _GrimeStrength * GRIME_GLOBAL_SCALE);
 
                 // Stepped, dithered lighting.
                 half3 light = _Ambient.rgb + GatherLighting(inputData);

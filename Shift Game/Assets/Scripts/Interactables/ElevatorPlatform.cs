@@ -47,10 +47,13 @@ public class ElevatorPlatform : MonoBehaviour
     private float timer;      // starting delay, then ride time
     private float offTime;
     private Material lampShown;
+    private SoundLoopEmitter motor;
+    private State lastState = State.Waiting;
 
     private void Awake()
     {
         startPos = transform.position;
+        motor = SoundLoopEmitter.Attach(gameObject, SoundId.ElevatorLoop, false);
         endPos = transform.TransformPoint(endOffset);
         ShowLamp(lampIdleMaterial);
     }
@@ -89,8 +92,21 @@ public class ElevatorPlatform : MonoBehaviour
                 break;
         }
 
+        UpdateSound();
+
         ShowLamp(Current == State.Arrived ? lampDoneMaterial
             : Current == State.Rising || Current == State.Returning ? lampMovingMaterial : lampIdleMaterial);
+    }
+
+    private void UpdateSound()
+    {
+        if (Current == lastState) return;
+        bool wasMoving = lastState == State.Rising || lastState == State.Returning;
+        bool moving = Current == State.Rising || Current == State.Returning;
+        if (moving && !wasMoving) GameAudio.Play(SoundId.ElevatorStart, transform.position);
+        if (!moving && wasMoving) GameAudio.Play(SoundId.ElevatorStop, transform.position);
+        if (motor != null) motor.Playing = moving;
+        lastState = Current;
     }
 
     /// <summary>Moves the platform (and the player standing on it). Returns true on arrival.</summary>

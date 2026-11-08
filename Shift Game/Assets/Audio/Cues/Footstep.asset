@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
+  m_Name: Footstep
+  m_EditorClassIdentifier: Assembly-CSharp::SoundCue
+  clips:
+  - {fileID: 8300000, guid: 9c59490349e42ee42ab328f753d2625b, type: 3}
+  - {fileID: 8300000, guid: 2679cb5a2373d0c4d9b0d9e7e4cf139b, type: 3}
+  - {fileID: 8300000, guid: c1379aa36b092a04db66516fac7a2ad4, type: 3}
+  autoAssignClips: 1
+  bus: 1
+  volume: 0.45
+  volumeVariance: 0.2
+  pitch: 1
+  pitchVariance: 0.08
+  spatialBlend: 0
+  minDistance: 1
+  maxDistance: 10
+  occlusion: 0
+  reverbMix: 1
+  maxVoices: 3
+  limit: 0
+  cooldown: 0.12
+  priority: 140
+  loop: 0

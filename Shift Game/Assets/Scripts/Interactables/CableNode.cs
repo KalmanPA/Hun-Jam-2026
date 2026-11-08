@@ -63,6 +63,12 @@ public class CableNode : MonoBehaviour
         graphDirty = true;
     }
 
+    private void Start()
+    {
+        // Cable boxes hum quietly with electricity.
+        if (Application.isPlaying && kind == Kind.CableBox) SoundLoopEmitter.Attach(gameObject, SoundId.CableBoxHum, true);
+    }
+
     private void DetectKind()
     {
         button = GetComponentInParent<DoorButton>();

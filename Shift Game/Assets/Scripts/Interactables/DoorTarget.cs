@@ -35,6 +35,7 @@ public class DoorTarget : MonoBehaviour, IDamageable
         current -= amount;
         kick = hitKick;
         if (current <= 0f) Break();
+        else GameAudio.Play(SoundId.TargetHit, transform.position + Vector3.up, Mathf.Clamp(amount / 15f, 0.5f, 1f));
     }
 
     private void Update()
@@ -44,6 +45,30 @@ public class DoorTarget : MonoBehaviour, IDamageable
         for (int i = 0; i < restRotations.Length; i++)
             if (hideWhenDestroyed[i] != null)
                 hideWhenDestroyed[i].transform.localRotation = restRotations[i] * Quaternion.Euler(-kick, 0f, 0f);
+    }
+
+    /// <summary>Stands the target back up at full health (the boss raises its shield targets again).</summary>
+    public void Restore()
+    {
+        IsDestroyed = false;
+        current = health;
+        kick = 0f;
+        if (hideWhenDestroyed == null) return;
+        for (int i = 0; i < hideWhenDestroyed.Length; i++)
+        {
+            if (hideWhenDestroyed[i] == null) continue;
+            hideWhenDestroyed[i].SetActive(true);
+            if (restRotations != null && i < restRotations.Length) hideWhenDestroyed[i].transform.localRotation = restRotations[i];
+        }
+    }
+
+    /// <summary>Puts the target down quietly (no explosion), as if already destroyed.</summary>
+    public void SetDown()
+    {
+        IsDestroyed = true;
+        if (hideWhenDestroyed == null) return;
+        foreach (GameObject go in hideWhenDestroyed)
+            if (go != null) go.SetActive(false);
     }
 
     private void Break()
@@ -60,5 +85,6 @@ public class DoorTarget : MonoBehaviour, IDamageable
             }
         }
         GearExplosion.Spawn(center, explosionSize, explosionMaterial, explosionColor);
+        GameAudio.Play(SoundId.TargetBreak, center);
     }
 }

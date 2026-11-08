@@ -48,6 +48,11 @@ public class FirstPersonController : MonoBehaviour
     /// <summary>When true the mouse no longer turns the camera (used while moving the gear stick).</summary>
     public bool LookLocked { get; set; }
 
+    /// <summary>When true the player ignores move, look and jump input (used while dead). Gravity still applies.</summary>
+    public bool Frozen { get; set; }
+
+    public Transform CameraPivot => cameraPivot;
+
     private Vector3 pushVelocity;
     private Vector3 beltVelocity;   // set while standing on a conveyor belt
     private bool onBeltThisFrame;
@@ -62,6 +67,7 @@ public class FirstPersonController : MonoBehaviour
 
     private void Awake()
     {
+        if (GetComponent<PlayerFootsteps>() == null) gameObject.AddComponent<PlayerFootsteps>();
         controller = GetComponent<CharacterController>();
 
         if (inputActions == null)
@@ -97,7 +103,7 @@ public class FirstPersonController : MonoBehaviour
     private void Update()
     {
         HandleCursor();
-        if (Cursor.lockState == CursorLockMode.Locked && !LookLocked)
+        if (Cursor.lockState == CursorLockMode.Locked && !LookLocked && !Frozen)
             HandleLook();
         HandleMovement();
     }
@@ -127,7 +133,7 @@ public class FirstPersonController : MonoBehaviour
 
     private void HandleMovement()
     {
-        Vector2 input = Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
+        Vector2 input = Frozen ? Vector2.zero : Vector2.ClampMagnitude(moveAction.ReadValue<Vector2>(), 1f);
         float speed = sprintAction.IsPressed() ? sprintSpeed : walkSpeed;
         Vector3 horizontal = (transform.right * input.x + transform.forward * input.y) * speed;
 
@@ -135,7 +141,7 @@ public class FirstPersonController : MonoBehaviour
         if (grounded)
         {
             if (verticalVelocity < 0f) verticalVelocity = -2f; // keep snapped to ground (but don't cancel an upward push)
-            if (jumpAction.WasPressedThisFrame())
+            if (!Frozen && jumpAction.WasPressedThisFrame())
                 verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
         verticalVelocity += gravity * Time.deltaTime;
@@ -147,6 +153,22 @@ public class FirstPersonController : MonoBehaviour
 
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f; // bonk the ceiling
         pushVelocity = Vector3.MoveTowards(pushVelocity, Vector3.zero, (grounded ? groundPushDrag : airPushDrag) * Time.deltaTime);
+    }
+
+    /// <summary>Moves the player to a spot (e.g. a checkpoint), facing the given yaw, with the camera level and all pushes cleared.</summary>
+    public void Teleport(Vector3 position, Quaternion rotation)
+    {
+        bool wasEnabled = controller.enabled;
+        controller.enabled = false;
+        transform.SetPositionAndRotation(position, Quaternion.Euler(0f, rotation.eulerAngles.y, 0f));
+        controller.enabled = wasEnabled;
+        Physics.SyncTransforms();
+
+        pitch = 0f;
+        if (cameraPivot != null) cameraPivot.localRotation = Quaternion.identity;
+        verticalVelocity = 0f;
+        pushVelocity = Vector3.zero;
+        beltVelocity = Vector3.zero;
     }
 
     private void OnControllerColliderHit(ControllerColliderHit hit)

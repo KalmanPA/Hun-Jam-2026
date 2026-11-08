@@ -122,6 +122,16 @@ public class ConveyorBelt : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        // Machine hum along the whole belt (the sound slides to the point nearest the player).
+        if (Application.isPlaying && Speed > 0f)
+        {
+            SoundLoopEmitter hum = SoundLoopEmitter.Attach(gameObject, SoundId.ConveyorLoop, true, length);
+            hum.transform.localPosition = new Vector3(0f, height, 0f);
+        }
+    }
+
     private void Update()
     {
         if (Application.isPlaying && width > 0f)
@@ -148,7 +158,11 @@ public class ConveyorBelt : MonoBehaviour
 
         spawnTimer -= dt;
         if (spawnTimer <= 0f)
-            spawnTimer = TrySpawn() ? source.SpawnInterval + Random.Range(0f, source.SpawnIntervalRandom) : 0.3f;
+        {
+            // An item override (intro wall of crates) keeps the items back to back, so it checks again every step.
+            float retry = source.HasItemOverride ? 0f : 0.3f;
+            spawnTimer = TrySpawn() ? source.SpawnInterval + Random.Range(0f, source.SpawnIntervalRandom) : retry;
+        }
 
         MoveHeavyItems(dt);
         CarryLooseBodies(dt);
@@ -164,10 +178,59 @@ public class ConveyorBelt : MonoBehaviour
 
         Vector3 spawnPoint = transform.TransformPoint(new Vector3(0f, height, -length * 0.5f + SpawnInset));
 
-        // Wait until the spawn area is clear (also keeps big crates from overlapping).
-        if (Physics.CheckBox(spawnPoint + Vector3.up * 1.1f, new Vector3(width * 0.45f, 1f, 0.95f), transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+        // Wait until the spawn area is clear (also keeps big crates from overlapping). With an item override (the intro's
+        // wall of crates) the check is exactly the crate's own depth, so each one comes out right against the last one.
+        float halfDepth = source.HasItemOverride ? PrefabDepth(prefab) * 0.5f + 0.02f : 0.95f;
+        if (Physics.CheckBox(spawnPoint + Vector3.up * 1.1f, new Vector3(width * 0.45f, 1f, halfDepth), transform.rotation, ~0, QueryTriggerInteraction.Ignore))
             return false;
 
+        SpawnItem(prefab, spawnPoint);
+        return true;
+    }
+
+    /// <summary>
+    /// Fills the whole belt with the opening's items right away, back to back, from the spawn point to the far end
+    /// (skipping spots that are already taken). Used when the intro walls off the level with big crates.
+    /// </summary>
+    public void FillWithItems()
+    {
+        if (!Application.isPlaying || source == null || length <= 0.01f) return;
+        GameObject[] prefabs = source.ItemPrefabs;
+        if (prefabs == null || prefabs.Length == 0) return;
+
+        float z = -length * 0.5f + SpawnInset;
+        float end = length * 0.5f - EndInset - 0.2f;
+        while (z < end)
+        {
+            GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
+            if (prefab == null) break;
+            float depth = PrefabDepth(prefab);
+            float centre = z + depth * 0.5f;
+            if (centre + depth * 0.5f > end) break;
+            Vector3 point = transform.TransformPoint(new Vector3(0f, height, centre));
+            if (!Physics.CheckBox(point + Vector3.up * 1.1f, new Vector3(width * 0.45f, 1f, depth * 0.5f), transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+                SpawnItem(prefab, point);
+            z += depth + 0.04f;
+        }
+        Physics.SyncTransforms();
+        spawnTimer = 0f;
+    }
+
+    /// <summary>Length of a prefab along the belt (its renderers' size on Z), at least 0.3 m.</summary>
+    private static float PrefabDepth(GameObject prefab)
+    {
+        float depth = 0.3f;
+        foreach (MeshFilter mf in prefab.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null) continue;
+            Vector3 size = Vector3.Scale(mf.sharedMesh.bounds.size, mf.transform.lossyScale);
+            depth = Mathf.Max(depth, Mathf.Abs(size.z));
+        }
+        return depth;
+    }
+
+    private void SpawnItem(GameObject prefab, Vector3 spawnPoint)
+    {
         ConveyorItem prefabItem = prefab.GetComponent<ConveyorItem>();
         bool heavy = prefabItem != null && prefabItem.Immovable;
         Quaternion rotation = heavy ? transform.rotation : transform.rotation * Quaternion.Euler(0f, Random.Range(-25f, 25f), 0f);
@@ -185,7 +248,6 @@ public class ConveyorBelt : MonoBehaviour
         if (item == null) item = go.AddComponent<ConveyorItem>();
         item.OnSpawnedByBelt();
         if (item.Immovable) heavyItems.Add(item);
-        return true;
     }
 
     private void MoveHeavyItems(float dt)

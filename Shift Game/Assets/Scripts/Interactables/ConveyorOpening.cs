@@ -51,10 +51,37 @@ public class ConveyorOpening : MonoBehaviour
     private static readonly List<ConveyorOpening> All = new List<ConveyorOpening>();
 
     public int BeltId => beltId;
+
+    /// <summary>The opening that runs the belt with this id (the "items come out" end) in the given scene, or null.</summary>
+    public static ConveyorOpening FindBeltOwner(int id, UnityEngine.SceneManagement.Scene scene)
+    {
+        foreach (ConveyorOpening o in All)
+            if (o != null && o.beltId == id && o.gameObject.scene == scene && o.belt != null) return o;
+        return null;
+    }
     public Flow ItemFlow => flow;
-    public GameObject[] ItemPrefabs => itemPrefabs;
-    public float SpawnInterval => spawnInterval;
-    public float SpawnIntervalRandom => spawnIntervalRandom;
+    public GameObject[] ItemPrefabs => overrideItems ?? itemPrefabs;
+    public float SpawnInterval => overrideItems != null ? 0f : spawnInterval;
+    public float SpawnIntervalRandom => overrideItems != null ? 0f : spawnIntervalRandom;
+
+    /// <summary>True while a script has swapped the items for its own list (see <see cref="OverrideItems"/>).</summary>
+    public bool HasItemOverride => overrideItems != null;
+
+    private GameObject[] overrideItems;
+
+    /// <summary>
+    /// Runtime only: makes the belt spawn only these prefabs, back to back, until <see cref="ClearItemOverride"/>.
+    /// With <paramref name="fillBelt"/> the whole belt is filled with them right away. Used by the intro cutscene
+    /// to wall off the rest of the level with big crates.
+    /// </summary>
+    public void OverrideItems(GameObject[] prefabs, bool fillBelt)
+    {
+        overrideItems = prefabs != null && prefabs.Length > 0 ? prefabs : null;
+        if (overrideItems != null && fillBelt && belt != null) belt.FillWithItems();
+    }
+
+    /// <summary>Back to this opening's own items and spawn timing.</summary>
+    public void ClearItemOverride() => overrideItems = null;
     public float BeltSpeed => beltSpeed;
     public ConveyorBelt Belt => belt;
 

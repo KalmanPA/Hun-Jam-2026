@@ -91,6 +91,7 @@ public class EnemyDrop : MonoBehaviour
             if (b != null) b.enabled = true;
         if (agent != null && agent.enabled) agent.Warp(transform.position);
 
+        GameAudio.Play(SoundId.RobotLand, transform.position);
         SendMessage("Alert", SendMessageOptions.DontRequireReceiver);
         Landed = true;
         Destroy(this);

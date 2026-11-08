@@ -56,6 +56,7 @@ public class EnemyBullet : MonoBehaviour
             IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
             target?.TakeDamage(damage);
             GearExplosion.Spawn(hit.point, transform.localScale.x * 2f, material, color, 0.15f);
+            GameAudio.Play(SoundId.EnemyBulletImpact, hit.point);
             Destroy(gameObject);
             return;
         }

@@ -35,6 +35,7 @@ public class GearLaser : MonoBehaviour
             hitPoint = hit.point;
             IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
             target?.TakeDamage(settings.damage);
+            GameAudio.Play(SoundId.LaserImpact, hit.point);
             GearBullet.PushRigidbody(hit, direction, settings.damage);
             GearExplosion.Spawn(hitPoint, settings.laserWidth * 4f, impactMaterial, settings.bulletColor, 0.2f);
         }
