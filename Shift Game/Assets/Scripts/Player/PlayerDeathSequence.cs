@@ -47,6 +47,13 @@ public class PlayerDeathSequence : MonoBehaviour
 
     public bool IsRunning => running;
 
+    /// <summary>Where the player goes back to when they die before reaching any checkpoint (set by the intro cutscene).</summary>
+    public void SetStartPoint(Vector3 position, Quaternion rotation)
+    {
+        startPosition = position;
+        startRotation = rotation;
+    }
+
     private void Awake()
     {
         health = GetComponent<PlayerHealth>();

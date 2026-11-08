@@ -665,8 +665,12 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
     // ---------------------------------------------------------------- voice
 
+    /// <summary>Says a voice line from the robot's head, cutting off whatever it was saying (used by cutscenes).
+    /// The handle tells the caller when the line has finished.</summary>
+    public SoundHandle Say(SoundId id) => dead ? default : SayLine(id);
+
     /// <summary>Says a voice line from the robot's head, cutting off whatever it was saying.</summary>
-    private void SayLine(SoundId id)
+    private SoundHandle SayLine(SoundId id)
     {
         SoundHandle h = GameAudio.PlayAttached(id, transform, Vector3.up * 1.4f);
         if (h.IsValid)
@@ -674,6 +678,7 @@ public class RobotEnemy : MonoBehaviour, IDamageable
             voiceLine.Stop(0.05f);
             voiceLine = h;
         }
+        return h;
     }
 
     /// <summary>"Stop, you criminal!" when it notices the player. Shared cooldown so a room of robots doesn't all shout.</summary>

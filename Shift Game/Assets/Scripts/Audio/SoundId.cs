@@ -38,6 +38,7 @@ public enum SoundId
     ShieldHit = 40,
     ShieldBreak = 41,
     Debris = 42,
+    RobotBerate = 43,   // long voice-acted lines the intro robots shout at the player
 
     // Doors, buttons, targets, spawners
     ButtonPress = 50,

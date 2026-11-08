@@ -173,6 +173,34 @@ public class GearShiftWeapon : MonoBehaviour
     public int MaxAmmo => maxAmmo;
     public bool IsShifting => shiftHeld;
 
+    /// <summary>The resting pose of the gun in camera space (used by cutscenes to animate the gun into the hands).</summary>
+    public Vector3 HipPosition => hipPosition;
+    public Quaternion HipRotation => Quaternion.Euler(hipEuler);
+
+    /// <summary>
+    /// Puts the stick fully into the slot of <paramref name="gear"/> right away (with the clunk), e.g. the intro
+    /// cutscene starting the player in gear 2. The barrel slides out over the next frames while the script is on.
+    /// </summary>
+    public void ForceGear(Gear gear)
+    {
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (slots[i].gear != gear) continue;
+            activeSlot = i;
+            stickPos = new Vector2(slots[i].column * slotSpacing, slots[i].direction >= 0 ? slotLength : -slotLength);
+            UpdateGear();
+            UpdateStickVisual();
+            return;
+        }
+        if (gear == Gear.Neutral)
+        {
+            activeSlot = -1;
+            stickPos.y = 0f;
+            UpdateGear();
+            UpdateStickVisual();
+        }
+    }
+
     private class BarrelRuntime
     {
         public BarrelPiece piece;

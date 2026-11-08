@@ -30,9 +30,11 @@ public static class AudioSetupTool
     private const string MixerPath = "Assets/Audio/GameMixer.mixer";
     private const string ReportPath = "Assets/Audio/Cues/_AudioReport.txt";
 
-    /// <summary>Left out on purpose for now (asked by Kalman): the Gazember clip and the longer voice-acted lines.</summary>
-    private static readonly Regex Skipped = new Regex(
-        @"gazember|^11s break$|^blinkrate$|^denied lunch$|^terminate$|^your output is down$", RegexOptions.IgnoreCase);
+    /// <summary>Left out on purpose for now (asked by Kalman): the Gazember clip.</summary>
+    private static readonly Regex Skipped = new Regex(@"gazember", RegexOptions.IgnoreCase);
+
+    /// <summary>The long voice-acted lines. Only the intro robots use them (RobotBerate).</summary>
+    private const string BerateLines = @"^11s break$|^blinkrate$|^denied lunch$|^terminate$|^your output is down$|^berate";
 
     private class Rule
     {
@@ -94,6 +96,7 @@ public static class AudioSetupTool
         new Rule { id = SoundId.EnemyBulletImpact, bus = SoundBus.World, match = R(MetalHard), setup = S(0.65f, 1.15f, 0.1f, 1f, 2, 30, 4, 0.04f, 110) },
         new Rule { id = SoundId.ShieldHit, bus = SoundBus.Enemies, match = R(@"shield hit|" + MetalHard), setup = S(0.8f, 0.9f, 0.08f, 1f, 2.5f, 35, 3, 0.05f, 90) },
         new Rule { id = SoundId.ShieldBreak, bus = SoundBus.Enemies, match = R(@"shield break|^metal hit [345]$"), setup = S(1f, 0.75f, 0.05f, 1f, 3, 45, 2, 0.1f, 40) },
+        new Rule { id = SoundId.RobotBerate, bus = SoundBus.Voice, match = R(BerateLines), setup = S(1f, 1f, 0f, 1f, 5, 45, 2, 0f, 20, volVar: 0f, occlusion: false) },
         new Rule { id = SoundId.Debris, bus = SoundBus.World, match = R(MetalLight), setup = S(0.35f, 1.3f, 0.15f, 1f, 1.5f, 20, 5, 0.04f, 200, volVar: 0.3f) },
 
         // ---- Doors, buttons, targets, spawners
@@ -134,6 +137,13 @@ public static class AudioSetupTool
             if (!AssetDatabase.IsValidFolder(AudioRoot)) return;
             Build();
         };
+    }
+
+    /// <summary>True when the bank exists but has no cue for <paramref name="id"/> yet (it was made before the id was added).</summary>
+    public static bool BankIsMissing(SoundId id)
+    {
+        SoundBank bank = AssetDatabase.LoadAssetAtPath<SoundBank>(BankPath);
+        return bank != null && !bank.entries.Any(e => e != null && e.id == id && e.cue != null);
     }
 
     [MenuItem("Final Shift/Audio/Rebuild Sound Bank")]
