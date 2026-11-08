@@ -12,7 +12,7 @@ using UnityEngine;
 ///     (face 2) once the player looks at it. They stay where they are, still berating, until they're shot.
 /// While any intro robot is alive the blocking belt (the second belt from the player, behind the robots) only
 /// carries big crates, back to back, so the rest of the level can't be seen. When the last one dies the belt
-/// goes back to its normal items.
+/// goes back to its normal items, right after the glasses cutscene (GlassesCutscene: the marker aim reticle).
 ///
 /// The intro plays once per play session: dying (respawn or scene reload) never plays it again.
 /// Set up by Final Shift > Intro Cutscene > Build Intro In Game Scene, which places everything under
@@ -33,6 +33,8 @@ public class IntroCutscene : MonoBehaviour
     [SerializeField] private ConveyorOpening blockingBelt;
     [Tooltip("Big crates the blocking belt carries while the intro robots are alive.")]
     [SerializeField] private GameObject[] blockingItems;
+    [Tooltip("Plays after the last intro robot is destroyed (glasses + marker reticle), before the belt opens the level.")]
+    [SerializeField] private GlassesCutscene glasses;
 
     [Header("Camera")]
     [Tooltip("How far the player looks down at the workbench (degrees).")]
@@ -99,6 +101,7 @@ public class IntroCutscene : MonoBehaviour
     private float fade;
     private Texture2D fadeTexture;
     private Coroutine berating;
+    private bool skipGlasses;
 
     private void Awake()
     {
@@ -122,8 +125,10 @@ public class IntroCutscene : MonoBehaviour
 
         if (!playIntro)
         {
-            // Testing elsewhere: leave the player where it is, robots just stand there and fight.
+            // Testing elsewhere: leave the player where it is, robots just stand there and fight. Reticle right away.
             fade = 0f;
+            skipGlasses = true;
+            if (glasses != null) glasses.ShowReticleNow();
             StartFight();
             return;
         }
@@ -136,6 +141,7 @@ public class IntroCutscene : MonoBehaviour
             fade = 0f;
             HasPlayed = true;
             if (weapon != null) weapon.ForceGear(startGear);
+            if (glasses != null && GlassesCutscene.HasPlayed) glasses.ShowReticleNow();
             StartFight();
             return;
         }
@@ -373,13 +379,19 @@ public class IntroCutscene : MonoBehaviour
         if (robots.Contains(robot)) CheckIntroOver();
     }
 
-    /// <summary>When every intro robot is dead the blocking belt goes back to normal.</summary>
+    /// <summary>When every intro robot is dead the glasses cutscene plays, then the blocking belt goes back to normal.</summary>
     private void CheckIntroOver()
     {
         if (introOver) return;
         foreach (RobotEnemy r in robots)
             if (r != null && !r.IsDead) return;
         introOver = true;
+        if (glasses != null && !skipGlasses) glasses.Play(OpenLevel);
+        else OpenLevel();
+    }
+
+    private void OpenLevel()
+    {
         if (blockingBelt != null) blockingBelt.ClearItemOverride();
     }
 

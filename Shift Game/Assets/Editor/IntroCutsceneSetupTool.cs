@@ -12,8 +12,8 @@ using UnityEngine.SceneManagement;
 ///  - the player start and a workbench past the first conveyor belt (it runs behind the player), facing the second,
 ///  - four RobotIntro robots (no gun, 1 HP, never move) between the second and third belt, facing the player,
 ///  - the third belt set as the blocking belt, carrying Crate_IntroWall crates while the robots live.
-/// Also makes the RobotIntro and Crate_IntroWall prefab variants and adds the long robot voice lines to the
-/// sound bank (RobotBerate).
+/// Also makes the RobotIntro and Crate_IntroWall prefab variants, the IntroGlasses and MarkerPen prefabs and the
+/// reticle stroke materials for the glasses cutscene, and adds the long robot voice lines to the sound bank (RobotBerate).
 ///
 /// Runs once by itself the first time Unity loads this script, and from
 /// Final Shift > Intro Cutscene > Rebuild Intro In Game Scene (replaces the old intro objects).
@@ -33,8 +33,9 @@ public static class IntroCutsceneSetupTool
     private const string GrimePath = "Assets/ShaderTest/Textures/Grime64.png";
 
     // Bump this to make the tool run once more automatically on every machine.
-    // 2: player and bench moved past the first belt; replaces the intro built by version 1.
-    private const int AutoRunVersion = 2;
+    // 2: player and bench moved past the first belt. 3: glasses + marker reticle cutscene.
+    // A newer version replaces the intro built by an older one.
+    private const int AutoRunVersion = 3;
     private const string AutoRunPrefKey = "FinalShift.IntroCutscene.AutoRunVersion";
 
     // Pieces of the robot model that make up its arm gun (same list as EnemyVariantsTool).
@@ -86,6 +87,7 @@ public static class IntroCutsceneSetupTool
 
             GameObject robotPrefab = EnsureRobotIntro();
             GameObject cratePrefab = EnsureCrateWall();
+            GlassesArt glassesArt = EnsureGlassesArt();
             if (robotPrefab == null) return;
 
             Scene scene = OpenGameScene();
@@ -102,7 +104,7 @@ public static class IntroCutsceneSetupTool
                 Undo.DestroyObjectImmediate(root);
             }
 
-            if (!BuildInScene(scene, robotPrefab, cratePrefab)) return;
+            if (!BuildInScene(scene, robotPrefab, cratePrefab, glassesArt)) return;
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
@@ -167,6 +169,181 @@ public static class IntroCutsceneSetupTool
         }
     }
 
+    // ---------------------------------------------------------------- glasses cutscene art
+
+    private const string CutsceneFolder = "Assets/Prefabs/Cutscene";
+    private const string GlassesModelPath = "Assets/Art/Glasses.fbx";
+    private const string PenModelPath = "Assets/Art/Pen.fbx";
+    private const string GlassesPrefabPath = CutsceneFolder + "/IntroGlasses.prefab";
+    private const string MarkerPrefabPath = CutsceneFolder + "/MarkerPen.prefab";
+    private const string StrokeATexturePath = "Assets/Art/Reticle/Reticle_StrokeA.png";
+    private const string StrokeBTexturePath = "Assets/Art/Reticle/Reticle_StrokeB.png";
+
+    private struct GlassesArt
+    {
+        public GameObject glasses, marker;
+        public Material strokeA, strokeB;
+    }
+
+    private static GlassesArt EnsureGlassesArt()
+    {
+        if (!AssetDatabase.IsValidFolder(CutsceneFolder)) AssetDatabase.CreateFolder("Assets/Prefabs", "Cutscene");
+        return new GlassesArt
+        {
+            glasses = AssetDatabase.LoadAssetAtPath<GameObject>(GlassesPrefabPath) ?? BuildGlassesPrefab(),
+            marker = AssetDatabase.LoadAssetAtPath<GameObject>(MarkerPrefabPath) ?? BuildMarkerPrefab(),
+            strokeA = StrokeMaterial("Reticle_StrokeA", StrokeATexturePath),
+            strokeB = StrokeMaterial("Reticle_StrokeB", StrokeBTexturePath),
+        };
+    }
+
+    /// <summary>
+    /// Glasses.fbx wrapped so the root sits in the middle of the front of the frame, worn the way it is
+    /// (lenses toward +Z, arms toward -Z), with a "RightLens" child on the inside of the right lens.
+    /// </summary>
+    private static GameObject BuildGlassesPrefab()
+    {
+        GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(GlassesModelPath);
+        if (model == null) { Debug.LogWarning("[FinalShift] Intro cutscene: " + GlassesModelPath + " not found, no glasses cutscene."); return null; }
+
+        Scene preview = EditorSceneManager.NewPreviewScene();
+        try
+        {
+            GameObject root = new GameObject("IntroGlasses");
+            SceneManager.MoveGameObjectToScene(root, preview);
+            Transform align = new GameObject("Model").transform;
+            align.SetParent(root.transform, false);
+            GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(model, preview);
+            inst.transform.SetParent(align, false);
+
+            // The model faces +Z with its arms toward -Z (front of the frame at the largest Z).
+            Bounds b = LocalBounds(root.transform);
+            align.localPosition = -new Vector3(b.center.x, b.center.y, b.max.z);
+            b = LocalBounds(root.transform);
+
+            Transform lens = new GameObject("RightLens").transform;
+            lens.SetParent(root.transform, false);
+            lens.localPosition = new Vector3(b.size.x * 0.25f, 0.002f, -0.004f); // +X = the wearer's right
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.Off;
+
+            GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, GlassesPrefabPath);
+            Debug.Log($"[FinalShift] Saved {GlassesPrefabPath} (frame {b.size.x:0.000} x {b.size.y:0.000} x {b.size.z:0.000} m).");
+            return saved;
+        }
+        finally
+        {
+            EditorSceneManager.ClosePreviewScene(preview);
+        }
+    }
+
+    /// <summary>Pen.fbx wrapped so the root is at the tip (the end with the "Pentip" material) and the body runs along +Z.</summary>
+    private static GameObject BuildMarkerPrefab()
+    {
+        GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(PenModelPath);
+        if (model == null) { Debug.LogWarning("[FinalShift] Intro cutscene: " + PenModelPath + " not found, the reticle draws itself."); return null; }
+
+        Scene preview = EditorSceneManager.NewPreviewScene();
+        try
+        {
+            GameObject root = new GameObject("MarkerPen");
+            SceneManager.MoveGameObjectToScene(root, preview);
+            Transform align = new GameObject("Model").transform;
+            align.SetParent(root.transform, false);
+            GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(model, preview);
+            inst.transform.SetParent(align, false);
+
+            Bounds b = LocalBounds(root.transform);
+            int axis = b.size.x >= b.size.y && b.size.x >= b.size.z ? 0 : b.size.y >= b.size.z ? 1 : 2;
+
+            // Which end is the tip: the middle of the submesh drawn with the tip material.
+            Vector3 tipHint = b.min;
+            bool found = false;
+            foreach (MeshRenderer mr in root.GetComponentsInChildren<MeshRenderer>())
+            {
+                MeshFilter mf = mr.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                Material[] mats = mr.sharedMaterials;
+                for (int i = 0; i < mats.Length && i < mf.sharedMesh.subMeshCount; i++)
+                {
+                    if (mats[i] == null || !mats[i].name.ToLowerInvariant().Contains("tip")) continue;
+                    Vector3 c = mf.sharedMesh.GetSubMesh(i).bounds.center;
+                    tipHint = root.transform.InverseTransformPoint(mf.transform.TransformPoint(c));
+                    found = true;
+                }
+            }
+            bool tipAtMax = found && tipHint[axis] > b.center[axis];
+            Vector3 tip = b.center, tail = b.center;
+            tip[axis] = tipAtMax ? b.max[axis] : b.min[axis];
+            tail[axis] = tipAtMax ? b.min[axis] : b.max[axis];
+
+            Quaternion r = Quaternion.FromToRotation(tail - tip, Vector3.forward);
+            align.localRotation = r;
+            align.localPosition = -(r * tip);
+            foreach (Renderer rend in root.GetComponentsInChildren<Renderer>()) rend.shadowCastingMode = ShadowCastingMode.Off;
+
+            GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, MarkerPrefabPath);
+            Debug.Log($"[FinalShift] Saved {MarkerPrefabPath} ({b.size[axis]:0.000} m long, tip found by material: {found}).");
+            return saved;
+        }
+        finally
+        {
+            EditorSceneManager.ClosePreviewScene(preview);
+        }
+    }
+
+    /// <summary>Bounds of all renderers under <paramref name="root"/>, in root space.</summary>
+    private static Bounds LocalBounds(Transform root)
+    {
+        bool any = false;
+        Bounds result = new Bounds();
+        foreach (MeshFilter mf in root.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null) continue;
+            Bounds mb = mf.sharedMesh.bounds;
+            Vector3 e = mb.extents;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = mb.center + new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z);
+                Vector3 p = root.InverseTransformPoint(mf.transform.TransformPoint(corner));
+                if (!any) { result = new Bounds(p, Vector3.zero); any = true; }
+                else result.Encapsulate(p);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Transparent unlit material for one marker stroke (the colour comes from AimReticle through _BaseColor).</summary>
+    private static Material StrokeMaterial(string name, string texturePath)
+    {
+        if (!AssetDatabase.IsValidFolder(MaterialFolder))
+            AssetDatabase.CreateFolder("Assets/ProtMaterials", "Intro");
+        string path = MaterialFolder + "/" + name + ".mat";
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+        Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null)
+        {
+            mat = new Material(shader);
+            AssetDatabase.CreateAsset(mat, path);
+        }
+        mat.shader = shader;
+        mat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath));
+        mat.SetColor("_BaseColor", Color.black);
+        // Transparent, alpha blended, no depth write.
+        mat.SetFloat("_Surface", 1f);
+        mat.SetFloat("_Blend", 0f);
+        mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+        mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+        mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+        mat.SetFloat("_ZWrite", 0f);
+        mat.SetFloat("_Cull", (float)CullMode.Off);
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        mat.renderQueue = (int)RenderQueue.Transparent + 10;
+        EditorUtility.SetDirty(mat);
+        return mat;
+    }
+
     // ---------------------------------------------------------------- scene
 
     private static Scene OpenGameScene()
@@ -226,7 +403,7 @@ public static class IntroCutsceneSetupTool
         return belts;
     }
 
-    private static bool BuildInScene(Scene scene, GameObject robotPrefab, GameObject cratePrefab)
+    private static bool BuildInScene(Scene scene, GameObject robotPrefab, GameObject cratePrefab, GlassesArt glassesArt)
     {
         List<Belt> belts = FindBelts(scene);
         if (belts.Count < 3)
@@ -311,6 +488,14 @@ public static class IntroCutsceneSetupTool
         SerializedProperty items = so.FindProperty("blockingItems");
         items.arraySize = cratePrefab != null ? 1 : 0;
         if (cratePrefab != null) items.GetArrayElementAtIndex(0).objectReferenceValue = cratePrefab;
+        GlassesCutscene glasses = root.AddComponent<GlassesCutscene>();
+        SerializedObject gso = new SerializedObject(glasses);
+        gso.FindProperty("glassesPrefab").objectReferenceValue = glassesArt.glasses;
+        gso.FindProperty("markerPrefab").objectReferenceValue = glassesArt.marker;
+        gso.FindProperty("strokeAMaterial").objectReferenceValue = glassesArt.strokeA;
+        gso.FindProperty("strokeBMaterial").objectReferenceValue = glassesArt.strokeB;
+        gso.ApplyModifiedPropertiesWithoutUndo();
+        so.FindProperty("glasses").objectReferenceValue = glasses;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         Selection.activeObject = root;
