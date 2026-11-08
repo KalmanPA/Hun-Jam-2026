@@ -79,6 +79,9 @@ public class GlassesCutscene : MonoBehaviour
     {
         Camera cam = PlayerCamera(out _);
         if (cam == null || cam.GetComponentInChildren<AimReticle>() != null) return;
+        // The Player prefab carries one, switched off: use that.
+        AimReticle own = AimReticle.FindUnder(cam.transform);
+        if (own != null) { own.Show(); return; }
         AimReticle r = AimReticle.Create(strokeAMaterial, strokeBMaterial, markerColor, ViewLayer());
         PlaceOnHud(r.transform, cam.transform);
         r.Active = true;

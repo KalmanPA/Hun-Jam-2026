@@ -103,6 +103,7 @@ public class FirstPersonController : MonoBehaviour
 
     private void Update()
     {
+        if (PauseTablet.IsOpen) return; // paused: no look, and no jump queued up for when it resumes
         HandleCursor();
         if (Cursor.lockState == CursorLockMode.Locked && !LookLocked && !Frozen)
             HandleLook();
@@ -111,6 +112,7 @@ public class FirstPersonController : MonoBehaviour
 
     private void HandleCursor()
     {
+        if (PauseTablet.Exists) return; // the pause tablet owns Escape and the cursor lock
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             LockCursor(false);
         else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
@@ -123,7 +125,7 @@ public class FirstPersonController : MonoBehaviour
 
         // Mouse delta is already per-frame; stick input needs scaling by time.
         bool fromMouse = lookAction.activeControl != null && lookAction.activeControl.device is Pointer;
-        Vector2 delta = fromMouse ? look * mouseSensitivity : look * gamepadSensitivity * Time.deltaTime;
+        Vector2 delta = fromMouse ? look * mouseSensitivity * GameSettings.MouseSensitivity : look * gamepadSensitivity * Time.deltaTime;
 
         transform.Rotate(Vector3.up, delta.x, Space.Self);
 

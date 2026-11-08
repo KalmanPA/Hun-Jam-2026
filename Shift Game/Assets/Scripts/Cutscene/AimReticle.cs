@@ -19,12 +19,12 @@ public class AimReticle : MonoBehaviour
     private static readonly int BaseMapST = Shader.PropertyToID("_BaseMap_ST");
     private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
-    private Renderer strokeA;
-    private Renderer strokeB;
+    [SerializeField] private Renderer strokeA;
+    [SerializeField] private Renderer strokeB;
     private float revealA = 1f;
     private float revealB = 1f;
     private MaterialPropertyBlock block;
-    private Color colour = Color.black;
+    [SerializeField] private Color colour = Color.black;
 
 
     /// <summary>False while a cutscene is drawing it. True once it's the aim reticle: then it hides for death, shifting and cutscenes.</summary>
@@ -42,6 +42,23 @@ public class AimReticle : MonoBehaviour
         r.SetReveal(1f, 1f);
         return r;
     }
+
+    private void Awake()
+    {
+        // The reticle that is part of the Player prefab: push the colour onto its strokes.
+        if (strokeA != null || strokeB != null) SetReveal(revealA, revealB);
+    }
+
+    /// <summary>Turns this reticle on as the aim reticle (the one waiting, switched off, in the Player prefab).</summary>
+    public void Show()
+    {
+        gameObject.SetActive(true);
+        SetReveal(1f, 1f);
+        Active = true;
+    }
+
+    /// <summary>The player's reticle under <paramref name="root"/>, also when it's switched off, or null.</summary>
+    public static AimReticle FindUnder(Transform root) => root != null ? root.GetComponentInChildren<AimReticle>(true) : null;
 
     private Renderer MakeStroke(string name, Material mat, int layer)
     {

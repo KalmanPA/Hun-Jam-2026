@@ -194,6 +194,9 @@ public class IntroCutscene : MonoBehaviour
 
     private IEnumerator Play()
     {
+        // The pause tablet is up at game start: the intro (and the first berating line) waits for it.
+        while (PauseTablet.IsOpen) yield return null;
+
         IsPlaying = true;
         HasPlayed = true;
 
@@ -468,7 +471,7 @@ public class IntroCutscene : MonoBehaviour
 
     private void OnGUI()
     {
-        if (fade <= 0f) return;
+        if (fade <= 0f || PauseTablet.IsOpen) return; // the tablet draws its own black backdrop
         if (fadeTexture == null)
         {
             fadeTexture = new Texture2D(1, 1);

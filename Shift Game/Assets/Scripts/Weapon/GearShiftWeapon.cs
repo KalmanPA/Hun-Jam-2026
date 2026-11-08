@@ -170,7 +170,8 @@ public class GearShiftWeapon : MonoBehaviour
     [SerializeField] private GearFireSettings gear3 = new GearFireSettings
     {
         automatic = false, fireRate = 2.5f, burstCount = 8, burstRate = 30f, bulletSpeed = 30f, range = 8f,
-        damage = 6f, spread = 6f, bulletSize = 0.07f, shrinkOverRange = true, recoilTilt = 14f, bulletColor = new Color(1f, 0.35f, 0.1f)
+        damage = 6f, spread = 6f, bulletSize = 0.07f, shrinkOverRange = true, recoilTilt = 14f, bulletColor = new Color(1f, 0.35f, 0.1f),
+        explodeOnEnd = true, explosionSize = 0.4f
     };
     [SerializeField] private GearFireSettings gear4 = new GearFireSettings
     {

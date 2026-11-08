@@ -617,6 +617,16 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         Vector3 origin = CurrentMuzzle().position;
         Vector3 to = aim.TargetCenter - origin;
         float length = Mathf.Min(to.magnitude, bulletRange);
+        if (length > 0.01f)
+        {
+            // Stop the line at the first wall/prop in the way (robots don't block it, like the laser shot itself).
+            int count = Physics.RaycastNonAlloc(origin, to.normalized, SightHits, length, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                if (SightHits[i].collider.GetComponentInParent<RobotEnemy>() != null) continue;
+                if (SightHits[i].distance < length) length = SightHits[i].distance;
+            }
+        }
         aimLine.enabled = true;
         aimLine.SetPosition(0, origin);
         aimLine.SetPosition(1, origin + to.normalized * length);

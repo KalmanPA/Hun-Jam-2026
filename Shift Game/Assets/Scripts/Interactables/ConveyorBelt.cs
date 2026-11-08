@@ -16,6 +16,9 @@ public class ConveyorBelt : MonoBehaviour
     private const float Grip = 8f;             // how fast loose items are brought up to belt speed (m/s per second)
     private const float SideGrip = 2.5f;       // how fast sideways sliding is stopped (m/s per second)
     private static readonly int BaseMapST = Shader.PropertyToID("_BaseMap_ST");
+    private static readonly int MainTexST = Shader.PropertyToID("_MainTex_ST");
+    private static readonly int BaseMap = Shader.PropertyToID("_BaseMap");
+    private static readonly int MainTex = Shader.PropertyToID("_MainTex");
     private static readonly Collider[] Overlaps = new Collider[64];
 
     [SerializeField] private ConveyorOpening source;
@@ -61,6 +64,15 @@ public class ConveyorBelt : MonoBehaviour
 
         // Moving surface: a quad facing up, texture V runs along the belt.
         surface = Part("Surface", PrimitiveType.Quad, new Vector3(0f, height + 0.005f, 0f), new Vector3(width, length, 1f), new Vector3(90f, 0f, 0f), surfaceMat).GetComponent<Renderer>();
+#if UNITY_EDITOR
+        // Inside a prefab instance the new references must be recorded as overrides, or they're saved as missing.
+        if (!Application.isPlaying)
+        {
+            UnityEditor.EditorUtility.SetDirty(this);
+            if (UnityEditor.PrefabUtility.IsPartOfPrefabInstance(this))
+                UnityEditor.PrefabUtility.RecordPrefabInstancePropertyModifications(this);
+        }
+#endif
         Part("Bed", PrimitiveType.Cube, new Vector3(0f, height - 0.07f, 0f), new Vector3(width + 0.1f, 0.14f, length), Vector3.zero, frameMat);
         // Side skirts down to the floor, with a low lip so small items can still be shoved off the side.
         float skirtX = width * 0.5f + 0.08f;
@@ -139,14 +151,56 @@ public class ConveyorBelt : MonoBehaviour
         ApplyScroll();
     }
 
+    /// <summary>
+    /// The moving quad. The serialized reference can get lost when the belt is rebuilt inside a prefab instance
+    /// (the old Surface is removed and the new one isn't recorded as an override), so it's looked up by name then.
+    /// </summary>
+    private Renderer FindSurface()
+    {
+        if (surface != null) return surface;
+        foreach (Transform child in transform)
+        {
+            if (child.name != "Surface" || !child.TryGetComponent(out Renderer r)) continue;
+            surface = r;
+#if UNITY_EDITOR
+            if (!Application.isPlaying && UnityEditor.PrefabUtility.IsPartOfPrefabInstance(this))
+                UnityEditor.PrefabUtility.RecordPrefabInstancePropertyModifications(this);
+#endif
+            break;
+        }
+        return surface;
+    }
+
+    /// <summary>
+    /// Scrolls the texture with a MaterialPropertyBlock only: the material asset itself is never touched, so playing
+    /// never changes it. The material's own Tiling and Offset are kept (read, not written) and the scroll goes on top.
+    /// One tile per belt width along the belt (times the material's Y tiling), so the texture keeps its shape.
+    /// </summary>
     private void ApplyScroll()
     {
-        if (surface == null || width <= 0f) return;
+        Renderer r = FindSurface();
+        if (r == null || width <= 0f) return;
+        Material mat = r.sharedMaterial;
+        Vector4 st = new Vector4(1f, 1f, 0f, 0f);
+        if (mat != null)
+        {
+            int tex = mat.HasTexture(BaseMap) ? BaseMap : mat.HasTexture(MainTex) ? MainTex : -1;
+            if (tex != -1)
+            {
+                Vector2 scale = mat.GetTextureScale(tex);
+                Vector2 offset = mat.GetTextureOffset(tex);
+                st = new Vector4(scale.x, scale.y, offset.x, offset.y);
+            }
+        }
+        float tilesAlong = st.y * length / width;
+        // scroll is in belt widths; the texture moves st.y tiles per belt width.
+        Vector4 scrolled = new Vector4(st.x, tilesAlong, st.z, st.w + scroll * st.y);
+
         block ??= new MaterialPropertyBlock();
-        surface.GetPropertyBlock(block);
-        // One texture tile per belt width, so the chevrons keep their shape.
-        block.SetVector(BaseMapST, new Vector4(1f, length / width, 0f, scroll));
-        surface.SetPropertyBlock(block);
+        r.GetPropertyBlock(block);
+        block.SetVector(BaseMapST, scrolled);
+        block.SetVector(MainTexST, scrolled);
+        r.SetPropertyBlock(block);
     }
 
     // ---------------------------------------------------------------- runtime

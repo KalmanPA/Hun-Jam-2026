@@ -1869,8 +1869,8 @@ MonoBehaviour:
     laser: 0
     laserWidth: 0.12
     laserDuration: 0.25
-    explodeOnEnd: 0
-    explosionSize: 0.6
+    explodeOnEnd: 1
+    explosionSize: 0.4
     killsPlayer: 0
     rocketJump: 0
     rocketForce: 16

@@ -161,6 +161,8 @@ public static class EnemyVariantsTool
 
     private static void SetUpSniper(GameObject robot)
     {
+        robot.transform.localScale = Vector3.one * 0.5f; // snipers are half size
+
         SerializedObject so = new SerializedObject(robot.GetComponent<RobotEnemy>());
         so.FindProperty("movementMode").enumValueIndex = (int)RobotEnemy.MovementMode.Stationary;
         so.FindProperty("shotType").enumValueIndex = (int)RobotEnemy.ShotType.Laser;
