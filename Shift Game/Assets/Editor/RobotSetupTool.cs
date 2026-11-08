@@ -182,8 +182,12 @@ public static class RobotSetupTool
         GameObject root = new GameObject(name);
         try
         {
-            Transform cube = Box("Cube", root.transform, Vector3.zero, Vector3.one * 0.4f, material);
-            Object.DestroyImmediate(cube.GetComponent<Collider>()); // picked up by distance, nothing to shoot
+            // Art model (Assets/Art/Healthpack.fbx / Ammobox.fbx); the coloured cube is only a fallback.
+            if (!PickupModelTool.ApplyModel(root, kind))
+            {
+                Transform cube = Box("Cube", root.transform, Vector3.zero, Vector3.one * 0.4f, material);
+                Object.DestroyImmediate(cube.GetComponent<Collider>()); // picked up by distance, nothing to shoot
+            }
             Pickup pickup = root.AddComponent<Pickup>();
             SerializedObject so = new SerializedObject(pickup);
             so.FindProperty("kind").enumValueIndex = (int)kind;
