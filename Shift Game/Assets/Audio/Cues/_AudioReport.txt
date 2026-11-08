@@ -3,7 +3,7 @@ PlayerLand           [stand-in] Footstep 1, Footstep 2, Footstep 3
 PlayerHurt           (none)
 WeaponGearEngage     Lock clack
 WeaponGearRelease    Lock clack
-WeaponEmpty          [stand-in] Button
+WeaponEmpty          weapon_dry_fire_01, weapon_dry_fire_02, weapon_dry_fire_03, weapon_dry_fire_04
 WeaponLaser          Fire_laser
 WeaponGear2Shot      [stand-in] Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
 WeaponGear3Shot      [stand-in] Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
@@ -11,6 +11,9 @@ WeaponRocketJump     [stand-in] Big_Bumm
 BulletImpact         Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
 LaserImpact          Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
 Gear2Explosion       [stand-in] Big_Bumm
+WeaponTrumpetShot    Trumpet shot
+WeaponMinigunSpin    Minigun spin
+WeaponSelfKill       Selfkill
 RobotHurt            ouch1, ouch2, ouch3long, ouch4, ouch5, ouch6
 RobotHitMetal        Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
 RobotAlert           Stop you criminal!
@@ -38,13 +41,14 @@ ElevatorStart        [stand-in] Lock clack
 ElevatorStop         [stand-in] Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
 ConveyorLoop         Machine drone
 CableBoxHum          Server drone
-PickupHealth         Approval
+PickupHealth         Healthget
 PickupAmmo           [stand-in] Lock clack
 PickupLand           Metal hit 1, Metal hit 2
 MusicEnd             End tunes
+RobotGazember        (none)
 
-Stand-ins (placeholder clips until proper ones exist): PlayerLand, WeaponEmpty, WeaponGear2Shot, WeaponGear3Shot, WeaponRocketJump, Gear2Explosion, RobotLand, EnemyBulletFire, TargetBreak, ElevatorStart, ElevatorStop, PickupAmmo
-Events with no clip yet: PlayerHurt
+Stand-ins (placeholder clips until proper ones exist): PlayerLand, WeaponGear2Shot, WeaponGear3Shot, WeaponRocketJump, Gear2Explosion, RobotLand, EnemyBulletFire, TargetBreak, ElevatorStart, ElevatorStop, PickupAmmo
+Events with no clip yet: PlayerHurt, RobotGazember
 Skipped on purpose: none
-Clips not used by anything: none
+Clips not used by anything: lever_click_01.mp3, lever_click_02.mp3, lever_click_03.mp3, lever_click_04.mp3, lever_heavy_shift_01.mp3, lever_heavy_shift_02.mp3, lever_heavy_shift_03.mp3, lever_pull_01.mp3, lever_pull_02.mp3, lever_pull_03.mp3, lever_pull_04.mp3, lever_push_01.mp3, lever_push_02.mp3, lever_push_03.mp3, lever_push_04.mp3, lever_ratchet_tick_01.mp3, lever_ratchet_tick_02.mp3, lever_ratchet_tick_03.mp3, lever_ratchet_tick_04.mp3, lever_ratchet_tick_05.mp3, lever_ratchet_tick_06.mp3, MarkerDraw.mp3, weapon_equip_01.mp3, weapon_equip_02.mp3, weapon_equip_03.mp3, weapon_mag_in_01.mp3, weapon_mag_in_02.mp3, weapon_mag_in_03.mp3, weapon_mag_out_01.mp3, weapon_mag_out_02.mp3, weapon_mag_out_03.mp3, weapon_rack_01.mp3, weapon_rack_02.mp3, weapon_rack_03.mp3, weapon_safety_toggle_01.mp3, weapon_safety_toggle_02.mp3, weapon_safety_toggle_03.mp3, weapon_slide_back_01.mp3, weapon_slide_back_02.mp3, weapon_slide_back_03.mp3, weapon_slide_forward_01.mp3, weapon_slide_forward_02.mp3, weapon_slide_forward_03.mp3
 Mixer: Assets/Audio/GameMixer.mixer

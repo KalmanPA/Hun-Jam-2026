@@ -3,7 +3,27 @@ guid: eabc990a4d0b0423d81b74a646c12808
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Arany
+    second: {fileID: 2100000, guid: b0a7f51bf0c75453289f8be0173c8613, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: "F\xE9m"
+    second: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: GunDisplay
+    second: {fileID: 2100000, guid: b3bf9b1c436b34d318b9dcb22513ccbd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: rosewood_veneer1
+    second: {fileID: 2100000, guid: cc152db24af5841b8acc901a86d1f751, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

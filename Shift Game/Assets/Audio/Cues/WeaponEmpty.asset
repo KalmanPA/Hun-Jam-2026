@@ -13,7 +13,11 @@ MonoBehaviour:
   m_Name: WeaponEmpty
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
   clips:
-  - {fileID: 8300000, guid: a0ab10890853b104baaa9a0cfad9477a, type: 3}
+  - {fileID: 8300000, guid: 0505d491e98964b038f865dcea983ac4, type: 3}
+  - {fileID: 8300000, guid: 8e06690aa10b646feb1b97f9ff7bdabe, type: 3}
+  - {fileID: 8300000, guid: d476bce51922e41c6a5d83c7c5276afc, type: 3}
+  - {fileID: 8300000, guid: f36a5cb52e8414b80a7b3bf36f9d5798, type: 3}
+  playInOrder: 0
   autoAssignClips: 1
   bus: 0
   volume: 0.5

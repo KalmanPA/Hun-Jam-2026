@@ -15,6 +15,7 @@ MonoBehaviour:
   clips:
   - {fileID: 8300000, guid: f43b52d2ca6ef194e9f1ca58d0c4bc2c, type: 3}
   - {fileID: 8300000, guid: 2c3ec63f250b9f04281c917ccf8ce169, type: 3}
+  playInOrder: 0
   autoAssignClips: 1
   bus: 3
   volume: 0.9

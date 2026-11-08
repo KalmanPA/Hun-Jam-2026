@@ -3,7 +3,12 @@ guid: ca7cc06ee664d4e9e82a370a6fd35485
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Healthbox_Baked.001
+    second: {fileID: 2100000, guid: 6243267697b0a4139b7dc8cb8b3ca219, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

@@ -82,6 +82,9 @@ public static class AudioSetupTool
         new Rule { id = SoundId.BulletImpact, bus = SoundBus.World, match = R(MetalLight), setup = S(0.5f, 1.2f, 0.12f, 1f, 1.5f, 25, 6, 0.03f, 160, volVar: 0.25f) },
         new Rule { id = SoundId.LaserImpact, bus = SoundBus.World, match = R(MetalHard), setup = S(0.8f, 1.1f, 0.08f, 1f, 2, 40, 2, 0.05f, 100) },
         new Rule { id = SoundId.Gear2Explosion, bus = SoundBus.Weapon, match = R(@"small explosion|explosion small|^pop"), standIn = R(Bumm), setup = S(0.5f, 1.55f, 0.1f, 1f, 2.5f, 40, 4, 0.06f, 90) },
+        new Rule { id = SoundId.WeaponTrumpetShot, bus = SoundBus.Weapon, match = R(@"^trumpet shot"), standIn = R(Bumm), setup = S(1f, 1f, 0f, 0f, 1, 10, 2, 0f, 0, volVar: 0f) },
+        new Rule { id = SoundId.WeaponMinigunSpin, bus = SoundBus.Weapon, match = R(@"^minigun spin"), setup = S(0.8f, 1f, 0.04f, 0f, 1, 10, 2, 0.1f, 30) },
+        new Rule { id = SoundId.WeaponSelfKill, bus = SoundBus.Voice, match = R(@"^self ?kill"), setup = S(1f, 1f, 0f, 0f, 1, 10, 2, 0f, 0, volVar: 0f) },
 
         // ---- Robots
         new Rule { id = SoundId.RobotHurt, bus = SoundBus.Voice, match = R(@"^ouch|grunt"), setup = S(0.9f, 1f, 0.08f, 1f, 3, 35, 4, 0.08f, 50, SoundCue.Limit.StealOldest, volVar: 0.15f) },
@@ -117,7 +120,7 @@ public static class AudioSetupTool
         new Rule { id = SoundId.CableBoxHum, bus = SoundBus.Ambience, match = R(@"^server drone|hum"), setup = S(0.3f, 1f, 0.08f, 1f, 1.5f, 8, 16, 0f, 200, loop: true, volVar: 0f) },
 
         // ---- Pickups
-        new Rule { id = SoundId.PickupHealth, bus = SoundBus.Player, match = R(@"pickup health|^heal|^approval"), setup = S(0.8f, 1.15f, 0.03f, 0f, 1, 10, 2, 0.05f, 40) },
+        new Rule { id = SoundId.PickupHealth, bus = SoundBus.Player, match = R(@"pickup health|^health ?get|^heal"), standIn = R(@"^approval"), setup = S(0.8f, 1.15f, 0.03f, 0f, 1, 10, 2, 0.05f, 40) },
         new Rule { id = SoundId.PickupAmmo, bus = SoundBus.Player, match = R(@"pickup ammo|^ammo"), standIn = R(@"^lock clack"), setup = S(0.8f, 0.85f, 0.04f, 0f, 1, 10, 2, 0.05f, 40) },
         new Rule { id = SoundId.PickupLand, bus = SoundBus.World, match = R(@"^metal hit [12]$"), setup = S(0.3f, 1.5f, 0.1f, 1f, 1.5f, 15, 3, 0.05f, 200) },
 

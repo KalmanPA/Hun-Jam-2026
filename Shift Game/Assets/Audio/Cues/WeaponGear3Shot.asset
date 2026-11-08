@@ -18,6 +18,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: ad4e7a8292c42ab489a62a2332ccc7b2, type: 3}
   - {fileID: 8300000, guid: 79373beef7a4b7c44aa68363ab0c5869, type: 3}
   - {fileID: 8300000, guid: 53a4b0b926082ca47ab12df7cc70de59, type: 3}
+  playInOrder: 0
   autoAssignClips: 1
   bus: 0
   volume: 0.55

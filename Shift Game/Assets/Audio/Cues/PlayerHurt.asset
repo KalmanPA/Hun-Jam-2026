@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: PlayerHurt
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
   clips: []
+  playInOrder: 0
   autoAssignClips: 1
   bus: 1
   volume: 0.8

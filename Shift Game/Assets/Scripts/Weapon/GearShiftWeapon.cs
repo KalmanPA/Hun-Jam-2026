@@ -3,7 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering.Universal;
 
-public enum Gear { Neutral, Reverse, First, Second, Third, Fourth }
+// Values are saved as numbers in prefabs/scenes: only ever add new gears at the end.
+public enum Gear { Neutral, Reverse, First, Second, Third, Fourth, Fifth }
 
 [System.Serializable]
 public class GearFireSettings
@@ -42,6 +43,10 @@ public class GearFireSettings
     public bool explodeOnEnd;
     public float explosionSize = 0.6f;
 
+    [Header("Kills the player (the 5th gear trumpet)")]
+    [Tooltip("One shot: a long, loud blast and the player dies on the spot.")]
+    public bool killsPlayer;
+
     [Header("Rocket jump (pushes the player away from where the gun points)")]
     public bool rocketJump;
     [Tooltip("Push speed in m/s.")]
@@ -64,6 +69,12 @@ public class BarrelPiece
     public Gear gear;
     [Tooltip("How far the barrel slides out of the gun when its gear is engaged (m).")]
     public float length = 0.3f;
+    [Tooltip("0 = slides out along the barrel. Otherwise the piece swings into place around its pivot's X axis, " +
+             "starting this many degrees away (180 = flipped out from under the gun).")]
+    public float swingAngle;
+    [Tooltip("0 = no spin. Otherwise a child named \"Spin\" turns around its local Z at up to this many degrees per " +
+             "second while the gear fires, and runs down with momentum afterwards (the minigun).")]
+    public float spinSpeed;
 }
 
 /// <summary>
@@ -71,7 +82,7 @@ public class BarrelPiece
 /// along the gate. Left mouse fires using the current gear. Health and ammo bars live on the gun.
 ///
 /// The gun lives in the GearWeapon prefab, split into pieces under "Model":
-///   Model/Body/Visual, Model/Indicators/Visual (with HealthFill + AmmoFill), Model/Gate/Visual,
+///   Model/Body/Visual, Model/Indicators/Visual (a GunDisplayScreen, or HealthFill + AmmoFill bars), Model/Gate/Visual,
 ///   Model/Gate/Stick/Visual, Model/Barrels/Barrel_First/Visual ... Barrel_Reverse/Visual.
 /// Swap the models inside each "Visual" object in the prefab. The piece objects themselves are moved by this script.
 /// If there is no "Model" child, placeholder shapes are built when the game starts.
@@ -87,7 +98,7 @@ public class GearShiftWeapon : MonoBehaviour
         new GateSlot { gear = Gear.Second,  column = -1f, direction = -1 },
         new GateSlot { gear = Gear.Third,   column = 0f,  direction = 1 },
         new GateSlot { gear = Gear.Fourth,  column = 1f,  direction = -1 },
-        new GateSlot { gear = Gear.Reverse, column = 2f,  direction = 1 },
+        new GateSlot { gear = Gear.Fifth,   column = 2f,  direction = 1 },
     };
     [SerializeField] private float slotSpacing = 0.032f;
     [SerializeField] private float slotLength = 0.032f;
@@ -104,9 +115,9 @@ public class GearShiftWeapon : MonoBehaviour
     {
         new BarrelPiece { gear = Gear.First,   length = 0.42f },
         new BarrelPiece { gear = Gear.Second,  length = 0.3f },
-        new BarrelPiece { gear = Gear.Third,   length = 0.2f },
+        new BarrelPiece { gear = Gear.Third,   length = 0.2f, spinSpeed = 1800f },
         new BarrelPiece { gear = Gear.Fourth,  length = 0.24f },
-        new BarrelPiece { gear = Gear.Reverse, length = 0.1f },
+        new BarrelPiece { gear = Gear.Fifth,   length = 0.1f, swingAngle = 180f },
     };
 
     [Header("Placeholder piece placement (only used when the pieces are built from scratch)")]
@@ -117,6 +128,10 @@ public class GearShiftWeapon : MonoBehaviour
     [SerializeField] private Vector3 barrelMount = new Vector3(0f, 0f, 0.245f);
     [Tooltip("How fast barrels slide in and out (fraction of their length per second).")]
     [SerializeField] private float barrelSlideSpeed = 5f;
+
+    [Header("Size")]
+    [Tooltip("Scale of the whole gun in the player's hands. The poses stay the same, so the gun looks this much bigger.")]
+    [SerializeField] private float modelScale = 2f;
 
     [Header("Weapon camera (stops the gun clipping into walls)")]
     [SerializeField] private bool useWeaponCamera = true;
@@ -162,6 +177,13 @@ public class GearShiftWeapon : MonoBehaviour
         automatic = false, fireRate = 0.8f, ammoCost = 5, recoilTilt = 30f, bulletColor = new Color(1f, 0.5f, 0.15f),
         rocketJump = true, rocketForce = 16f, explosionSize = 0.9f
     };
+    [SerializeField] private GearFireSettings gear5 = new GearFireSettings
+    {
+        automatic = false, fireRate = 0.5f, ammoCost = 0, recoilTilt = 40f, bulletColor = new Color(1f, 0.75f, 0.25f),
+        explosionSize = 1.2f, killsPlayer = true
+    };
+    [Tooltip("5th gear: seconds the \"selfkill\" voice line plays before the blast.")]
+    [SerializeField] private float selfKillLead = 0.5f;
     [SerializeField] private GearFireSettings reverse = new GearFireSettings { canFire = false };
 
     [Header("Feel")]
@@ -208,6 +230,11 @@ public class GearShiftWeapon : MonoBehaviour
         public Transform visual;
         public Transform muzzle;
         public float extend;
+        public Vector3 restPosition;
+        public Quaternion restRotation;
+        public Transform spinner;
+        public float spinVelocity;   // degrees per second
+        public float spinDriveUntil; // keeps spinning up until this time (refreshed by every shot)
     }
 
     // Pieces
@@ -242,6 +269,7 @@ public class GearShiftWeapon : MonoBehaviour
     private float recoilReadyTime;
     private float recoilAngle;
     private float gearKick;
+    private bool fatalShotPending;
 
     // ---------------------------------------------------------------- setup
 
@@ -258,6 +286,7 @@ public class GearShiftWeapon : MonoBehaviour
         ComputeRail();
         stickPos = new Vector2((railMin + railMax) * 0.5f, 0f);
 
+        transform.localScale = Vector3.one * modelScale;
         model = transform.Find("Model");
         if (model == null) BuildPlaceholderPieces();
         BindPieces();
@@ -272,6 +301,7 @@ public class GearShiftWeapon : MonoBehaviour
 
     private void OnDisable()
     {
+        fatalShotPending = false; // a 5th-gear sequence cut short (e.g. killed meanwhile) must not block the next one
         if (controller != null) controller.LookLocked = false;
     }
 
@@ -339,8 +369,9 @@ public class GearShiftWeapon : MonoBehaviour
         Transform indicators = model.Find("Indicators");
         healthFill = FindDeep(indicators, "HealthFill");
         ammoFill = FindDeep(indicators, "AmmoFill");
-        if (healthFill == null || ammoFill == null)
-            Debug.LogWarning("GearShiftWeapon: Model/Indicators needs children named HealthFill and AmmoFill.", this);
+        bool hasScreen = indicators != null && indicators.GetComponentInChildren<GunDisplayScreen>(true) != null;
+        if (!hasScreen && (healthFill == null || ammoFill == null))
+            Debug.LogWarning("GearShiftWeapon: Model/Indicators needs a GunDisplayScreen or children named HealthFill and AmmoFill.", this);
 
         gate = model.Find("Gate");
         stick = gate != null ? gate.Find("Stick") : null;
@@ -365,7 +396,12 @@ public class GearShiftWeapon : MonoBehaviour
                 muzzle.SetParent(pivot, false);
                 muzzle.localPosition = new Vector3(0f, 0f, piece.length + 0.01f);
             }
-            barrelRuntimes.Add(new BarrelRuntime { piece = piece, pivot = pivot, visual = visual, muzzle = muzzle });
+            barrelRuntimes.Add(new BarrelRuntime
+            {
+                piece = piece, pivot = pivot, visual = visual, muzzle = muzzle,
+                restPosition = pivot.localPosition, restRotation = pivot.localRotation,
+                spinner = piece.spinSpeed > 0f ? FindDeep(pivot, "Spin") : null
+            });
         }
     }
 
@@ -594,10 +630,38 @@ public class GearShiftWeapon : MonoBehaviour
 
             if (b.visual == null || b.pivot == null) continue;
             float eased = Mathf.SmoothStep(0f, 1f, b.extend);
-            b.pivot.localPosition = new Vector3(0f, 0f, -b.piece.length * (1f - eased));
+            if (Mathf.Abs(b.piece.swingAngle) > 0.01f)
+            {
+                // Swings into place around the pivot (e.g. the trumpet flipping out from under the gun).
+                b.pivot.localPosition = b.restPosition;
+                b.pivot.localRotation = b.restRotation * Quaternion.Euler(b.piece.swingAngle * (1f - eased), 0f, 0f);
+            }
+            else
+            {
+                b.pivot.localPosition = b.restPosition + new Vector3(0f, 0f, -b.piece.length * (1f - eased));
+            }
+            UpdateSpin(b);
             bool visible = b.extend > 0.001f;
             if (b.visual.gameObject.activeSelf != visible) b.visual.gameObject.SetActive(visible);
         }
+    }
+
+    [Header("Spinning barrels (minigun)")]
+    [Tooltip("Seconds from standstill to full speed.")]
+    [SerializeField] private float spinUpTime = 0.15f;
+    [Tooltip("How quickly the spin dies away after the last shot (higher = stops sooner).")]
+    [SerializeField] private float spinDrag = 1.6f;
+
+    /// <summary>Spins up fast while the barrel fires, then coasts down with momentum.</summary>
+    private void UpdateSpin(BarrelRuntime b)
+    {
+        if (b.spinner == null) return;
+        float dt = Time.deltaTime;
+        if (Time.time < b.spinDriveUntil)
+            b.spinVelocity = Mathf.MoveTowards(b.spinVelocity, b.piece.spinSpeed, b.piece.spinSpeed / Mathf.Max(0.01f, spinUpTime) * dt);
+        else
+            b.spinVelocity = Mathf.MoveTowards(b.spinVelocity * Mathf.Exp(-spinDrag * dt), 0f, 40f * dt);
+        if (b.spinVelocity > 0.01f) b.spinner.localRotation *= Quaternion.Euler(0f, 0f, b.spinVelocity * dt);
     }
 
     private BarrelRuntime ActiveBarrel()
@@ -617,6 +681,7 @@ public class GearShiftWeapon : MonoBehaviour
             case Gear.Second: return gear2;
             case Gear.Third: return gear3;
             case Gear.Fourth: return gear4;
+            case Gear.Fifth: return gear5;
             case Gear.Reverse: return reverse;
             default: return null;
         }
@@ -651,6 +716,11 @@ public class GearShiftWeapon : MonoBehaviour
         if (burstRemaining > 0 || Time.time < nextFireTime) return;
 
         nextFireTime = Time.time + 1f / Mathf.Max(0.01f, s.fireRate);
+        if (s.killsPlayer)
+        {
+            if (!fatalShotPending) StartCoroutine(FatalSequence(s));
+            return;
+        }
         if (Ammo < Mathf.Max(1, s.ammoCost))
         {
             GameAudio.Play2D(SoundId.WeaponEmpty); // empty: no reload in this game
@@ -667,6 +737,9 @@ public class GearShiftWeapon : MonoBehaviour
             RocketJump(s);
             return;
         }
+
+        BarrelRuntime spinning = ActiveBarrel();
+        if (spinning != null && spinning.spinner != null) GameAudio.Play2D(SoundId.WeaponMinigunSpin);
 
         burstSettings = s;
         burstRemaining = Mathf.Max(1, s.burstCount) - 1;
@@ -692,6 +765,30 @@ public class GearShiftWeapon : MonoBehaviour
         Transform m = Muzzle();
         GearExplosion.Spawn(m.position + aim * 0.15f, s.explosionSize, BulletMaterial(s.bulletColor), s.bulletColor);
         recoilOffset += new Vector3(0f, 0.01f, -recoilKick * 2f);
+    }
+
+    /// <summary>5th gear: the "selfkill" voice line for <see cref="selfKillLead"/> seconds, then the blast and death.</summary>
+    private System.Collections.IEnumerator FatalSequence(GearFireSettings s)
+    {
+        fatalShotPending = true;
+        SoundHandle voice = GameAudio.Play2D(SoundId.WeaponSelfKill);
+        yield return new WaitForSeconds(selfKillLead);
+        if (voice.IsValid) voice.Stop(0.05f);
+        recoilShotTime = Time.time;
+        recoilReadyTime = Time.time + 1f / Mathf.Max(0.01f, s.fireRate);
+        recoilAngle = s.recoilTilt;
+        FatalShot(s);
+        fatalShotPending = false;
+    }
+
+    /// <summary>5th gear: one long, loud blast from the trumpet and the player dies instantly.</summary>
+    private void FatalShot(GearFireSettings s)
+    {
+        GameAudio.Play2D(SoundId.WeaponTrumpetShot);
+        Transform m = Muzzle();
+        GearExplosion.Spawn(m.position + m.forward * 0.1f, s.explosionSize, BulletMaterial(s.bulletColor), s.bulletColor);
+        recoilOffset += new Vector3(0f, 0.02f, -recoilKick * 3f);
+        if (health != null && !health.IsDead) health.TakeDamage(health.Max * 100f + health.Current);
     }
 
     private bool FireBullet(GearFireSettings s)
@@ -722,6 +819,8 @@ public class GearShiftWeapon : MonoBehaviour
         }
 
         GameAudio.Play2D(ShotSound(s));
+        BarrelRuntime fired = ActiveBarrel();
+        if (fired != null && fired.spinner != null) fired.spinDriveUntil = Time.time + 0.12f;
 
         Material mat = BulletMaterial(s.bulletColor);
         if (s.laser)
@@ -765,7 +864,7 @@ public class GearShiftWeapon : MonoBehaviour
         kick *= Quaternion.Euler(-recoil, 0f, 0f);
 
         Quaternion shiftRot = ShiftRotation();
-        Vector3 shiftPos = shiftFocusPosition - shiftRot * ShiftFocusLocal;
+        Vector3 shiftPos = shiftFocusPosition - shiftRot * (ShiftFocusLocal * modelScale);
 
         transform.localPosition = Vector3.Lerp(hipPosition, shiftPos, t) + recoilOffset;
         transform.localRotation = Quaternion.Slerp(hipRot, shiftRot, t) * kick;

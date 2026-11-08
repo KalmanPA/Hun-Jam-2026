@@ -13,13 +13,14 @@ MonoBehaviour:
   m_Name: PickupHealth
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
   clips:
-  - {fileID: 8300000, guid: 9123d54b6151f394bad436ca2058e0ab, type: 3}
+  - {fileID: 8300000, guid: 9e66d421597f54d5e93b6cfeb2828a43, type: 3}
+  playInOrder: 0
   autoAssignClips: 1
   bus: 1
   volume: 0.8
   volumeVariance: 0.1
-  pitch: 1.15
-  pitchVariance: 0.03
+  pitch: 1
+  pitchVariance: 0
   spatialBlend: 0
   minDistance: 1
   maxDistance: 10

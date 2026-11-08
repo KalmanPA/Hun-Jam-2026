@@ -23,6 +23,9 @@ public enum SoundId
     BulletImpact = 17,
     LaserImpact = 18,
     Gear2Explosion = 19,
+    WeaponTrumpetShot = 20, // 5th gear: the long, loud blast that kills the player
+    WeaponSelfKill = 21,    // 5th gear: the voice line that plays (1 s) before the blast
+    WeaponMinigunSpin = 22, // 3rd gear: the barrels spinning up, then running down
 
     // Robots
     RobotHurt = 30,
