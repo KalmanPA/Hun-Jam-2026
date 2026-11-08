@@ -66,7 +66,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: deae6032b8d7ca247ae23f45a168a648, type: 2}
+  - {fileID: 2100000, guid: 6b2f2a9f37918409ea6781d52bb6a2bb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -178,7 +178,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: deae6032b8d7ca247ae23f45a168a648, type: 2}
+  - {fileID: 2100000, guid: e3beb70cabc5a174d9a15ab16791918c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -381,4 +381,4 @@ MonoBehaviour:
   activeMaterial: {fileID: 2100000, guid: bdb5da18c7708d74b84b1e59ce7c3cff, type: 2}
   builtLinks: []
   builtCables: []
-  builtSignature: 0
+  builtSignature: 168227305
