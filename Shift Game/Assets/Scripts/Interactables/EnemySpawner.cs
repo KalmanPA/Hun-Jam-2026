@@ -99,9 +99,19 @@ public class EnemySpawner : MonoBehaviour
         if (spawnOnStart) Activate();
     }
 
+    // Activate() was called while the intro holds the level: start as soon as it lets go.
+    private bool activateWhenFree;
+
     private void Update()
     {
-        if (state != State.Waiting || triggerZones == null) return;
+        if (state != State.Waiting || IntroCutscene.LevelHeld) return;
+        if (activateWhenFree)
+        {
+            activateWhenFree = false;
+            Activate();
+            return;
+        }
+        if (triggerZones == null) return;
         foreach (DoorTriggerZone zone in triggerZones)
         {
             if (zone != null && zone.PlayerInside)
@@ -116,6 +126,7 @@ public class EnemySpawner : MonoBehaviour
     public void Activate()
     {
         if (state != State.Waiting) return;
+        if (IntroCutscene.LevelHeld) { activateWhenFree = true; return; } // nothing spawns until the intro is over
         state = State.Spawning;
         StartCoroutine(Run());
     }

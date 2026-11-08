@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
+  m_Name: RobotHurt
+  m_EditorClassIdentifier: Assembly-CSharp::SoundCue
+  clips:
+  - {fileID: 8300000, guid: 04dd843407f68354a9a8c68067affef1, type: 3}
+  - {fileID: 8300000, guid: b52fea081dbceb84e834a48102cc3c8b, type: 3}
+  - {fileID: 8300000, guid: b58502c3c4b19364d8156ae69c8668d0, type: 3}
+  - {fileID: 8300000, guid: 4388e47b2370e4345815c25f6f8fca46, type: 3}
+  - {fileID: 8300000, guid: 4a5c1945ee00028408292be130b500fd, type: 3}
+  - {fileID: 8300000, guid: e9df75d12019eec4499f91827a3ac0e8, type: 3}
+  autoAssignClips: 1
+  bus: 4
+  volume: 0.9
+  volumeVariance: 0.15
+  pitch: 1
+  pitchVariance: 0.08
+  spatialBlend: 1
+  minDistance: 3
+  maxDistance: 35
+  occlusion: 1
+  reverbMix: 1
+  maxVoices: 4
+  limit: 0
+  cooldown: 0.08
+  priority: 50
+  loop: 0

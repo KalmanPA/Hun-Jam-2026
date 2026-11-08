@@ -65,6 +65,10 @@ PrefabInstance:
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6059086502478649109, guid: 46a99efd1588bdc4e92286ab2592eea5, type: 3}
+      propertyPath: maxHealth
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6059086502478649109, guid: 46a99efd1588bdc4e92286ab2592eea5, type: 3}
       propertyPath: burstCount
       value: 1
       objectReference: {fileID: 0}

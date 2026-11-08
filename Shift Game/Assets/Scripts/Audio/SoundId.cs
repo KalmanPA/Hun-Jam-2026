@@ -64,6 +64,9 @@ public enum SoundId
 
     // Music
     MusicEnd = 80,
+
+    // Special enemies
+    RobotGazember = 90, // Gazember's voice line (the twin-gun robot)
 }
 
 /// <summary>Mixer bus a cue plays through. Each one maps to a group in Assets/Audio/GameMixer.mixer.</summary>

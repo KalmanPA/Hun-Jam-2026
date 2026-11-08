@@ -30,8 +30,8 @@ public static class AudioSetupTool
     private const string MixerPath = "Assets/Audio/GameMixer.mixer";
     private const string ReportPath = "Assets/Audio/Cues/_AudioReport.txt";
 
-    /// <summary>Left out on purpose for now (asked by Kalman): the Gazember clip.</summary>
-    private static readonly Regex Skipped = new Regex(@"gazember", RegexOptions.IgnoreCase);
+    /// <summary>Clips left out on purpose (none right now; the Gazember clip is used by RobotGazember).</summary>
+    private static readonly Regex Skipped = new Regex(@"^$a", RegexOptions.IgnoreCase); // matches nothing
 
     /// <summary>The long voice-acted lines. Only the intro robots use them (RobotBerate).</summary>
     private const string BerateLines = @"^11s break$|^blinkrate$|^denied lunch$|^terminate$|^your output is down$|^berate";
@@ -123,6 +123,9 @@ public static class AudioSetupTool
 
         // ---- Music
         new Rule { id = SoundId.MusicEnd, bus = SoundBus.Music, match = R(@"^end tunes|music"), setup = S(0.8f, 1f, 0f, 0f, 1, 10, 1, 0f, 0, volVar: 0f) },
+
+        // ---- Special enemies
+        new Rule { id = SoundId.RobotGazember, bus = SoundBus.Voice, match = R(@"gazember"), setup = S(1f, 1f, 0f, 1f, 5, 45, 1, 0f, 20, volVar: 0f, occlusion: false) },
     };
 
     // ---------------------------------------------------------------- entry points

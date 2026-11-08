@@ -6,7 +6,7 @@ using UnityEngine;
 /// whatever is under the screen centre, so it shows where shots go.
 ///
 /// It is two quads (one per marker stroke) so the cutscene can draw them stroke by stroke with <see cref="SetReveal"/>.
-/// Hidden while the player is dead, and while the gun is tilted for shifting or put away (cutscenes).
+/// Once it is the reticle it is always visible.
 /// </summary>
 public class AimReticle : MonoBehaviour
 {
@@ -26,8 +26,6 @@ public class AimReticle : MonoBehaviour
     private MaterialPropertyBlock block;
     private Color colour = Color.black;
 
-    private PlayerHealth health;
-    private GearShiftWeapon weapon;
 
     /// <summary>False while a cutscene is drawing it. True once it's the aim reticle: then it hides for death, shifting and cutscenes.</summary>
     public bool Active { get; set; }
@@ -89,17 +87,11 @@ public class AimReticle : MonoBehaviour
         r.SetPropertyBlock(block);
     }
 
-    private void Start()
-    {
-        health = GetComponentInParent<PlayerHealth>();
-        weapon = health != null ? health.GetComponentInChildren<GearShiftWeapon>(true) : null;
-    }
-
     private void LateUpdate()
     {
+        // Constantly visible once it's the reticle (also while shifting and during later cutscenes).
         if (!Active) return;
-        bool show = (health == null || !health.IsDead) && (weapon == null || (weapon.enabled && !weapon.IsShifting));
-        if (strokeA != null) strokeA.enabled = show && revealA > 0.001f;
-        if (strokeB != null) strokeB.enabled = show && revealB > 0.001f;
+        if (strokeA != null) strokeA.enabled = revealA > 0.001f;
+        if (strokeB != null) strokeB.enabled = revealB > 0.001f;
     }
 }

@@ -7,8 +7,9 @@ using UnityEngine;
 ///  1. The gun is lowered out of view.
 ///  2. The player pulls their glasses down off their face and holds them up in front of them.
 ///  3. A marker comes in and draws an X on the right lens, one stroke at a time.
-///  4. The glasses go back on. The glass disappears and only the small X stays, in the middle of the view:
-///     the aim reticle (the guns shoot at the screen centre).
+///  4. The glasses go back on, with the red X still drawn on the lens. They sit so the X ends up exactly in the
+///     middle of the view: the X on the worn glasses is the aim reticle (the guns shoot at the screen centre).
+///     It's an object on the glasses, not UI; the frame itself is hidden once worn (too close to the eye to see).
 ///  5. The gun comes back up and the player gets control.
 /// Plays once per play session; after a scene reload the reticle is simply there.
 /// Started by IntroCutscene. The prefabs and materials are made by IntroCutsceneSetupTool.
@@ -23,12 +24,14 @@ public class GlassesCutscene : MonoBehaviour
     [SerializeField] private GameObject markerPrefab;
     [SerializeField] private Material strokeAMaterial;
     [SerializeField] private Material strokeBMaterial;
-    [SerializeField] private Color reticleColor = Color.black;
+    [Tooltip("Colour of the marker X (also the aim reticle).")]
+    [SerializeField] private Color markerColor = new Color(0.95f, 0.06f, 0.04f, 1f);
 
     [Header("Reticle")]
     [Tooltip("Width of the X drawn on the lens (metres).")]
     [SerializeField] private float lensReticleSize = 0.024f;
-    [Tooltip("Final reticle: distance in front of the camera and width (metres). 0.012 at 0.3 m is about 2.3 degrees.")]
+    [Tooltip("How big the X looks once the glasses are on, as 'this wide at this distance' (metres). " +
+             "0.012 at 0.3 m is about 2.3 degrees.")]
     [SerializeField] private float hudDistance = 0.3f;
     [SerializeField] private float hudSize = 0.012f;
 
@@ -76,9 +79,46 @@ public class GlassesCutscene : MonoBehaviour
     {
         Camera cam = PlayerCamera(out _);
         if (cam == null || cam.GetComponentInChildren<AimReticle>() != null) return;
-        AimReticle r = AimReticle.Create(strokeAMaterial, strokeBMaterial, reticleColor, ViewLayer());
+        AimReticle r = AimReticle.Create(strokeAMaterial, strokeBMaterial, markerColor, ViewLayer());
         PlaceOnHud(r.transform, cam.transform);
         r.Active = true;
+    }
+
+    private Transform SpawnGlasses(Transform camT, int layer, out Transform lens)
+    {
+        Transform glasses = Instantiate(glassesPrefab, camT, false).transform;
+        glasses.name = "WornGlasses";
+        SetLayer(glasses.gameObject, layer);
+        foreach (Collider c in glasses.GetComponentsInChildren<Collider>()) Destroy(c);
+        lens = glasses.Find("RightLens");
+        if (lens == null) lens = glasses;
+        return glasses;
+    }
+
+    /// <summary>The X, stuck to the inside of the lens (camera side), at its drawn size.</summary>
+    private void StickToLens(Transform rt, Transform lens)
+    {
+        rt.SetParent(lens, false);
+        rt.localPosition = Vector3.zero;
+        rt.localRotation = Quaternion.identity;
+        rt.localScale = Vector3.one * (lensReticleSize / Mathf.Max(1e-4f, lens.lossyScale.x));
+    }
+
+    /// <summary>
+    /// Where the glasses sit when worn (camera space, no rotation) so the X on the lens is exactly in the middle
+    /// of the view: the worn position, moved sideways and up/down by where the X sits on the frame.
+    /// </summary>
+    private Vector3 WornPoseFor(Transform glasses, Transform x)
+    {
+        Vector3 offset = Vector3.Scale(glasses.InverseTransformPoint(x.position), glasses.localScale);
+        return new Vector3(-offset.x, -offset.y, wornPosition.z);
+    }
+
+    /// <summary>Worn glasses are too close to the eye to see: hide the frame and glass, keep the X.</summary>
+    private static void HideFrame(Transform glasses, Transform x)
+    {
+        foreach (Renderer r in glasses.GetComponentsInChildren<Renderer>(true))
+            if (!r.transform.IsChildOf(x)) r.enabled = false;
     }
 
     /// <summary>Plays the cutscene, then calls <paramref name="onDone"/> (the intro opens the level there).</summary>
@@ -167,11 +207,7 @@ public class GlassesCutscene : MonoBehaviour
         }
 
         // 2. Glasses down off the face and up in front of the eyes.
-        Transform glasses = Instantiate(glassesPrefab, camT, false).transform;
-        SetLayer(glasses.gameObject, layer);
-        foreach (Collider c in glasses.GetComponentsInChildren<Collider>()) Destroy(c);
-        Transform lens = glasses.Find("RightLens");
-        if (lens == null) lens = glasses;
+        Transform glasses = SpawnGlasses(camT, layer, out Transform lens);
         Quaternion worn = Quaternion.identity;
         Quaternion nose = Quaternion.Euler(noseEuler);
         Quaternion held = Quaternion.Euler(heldEuler);
@@ -182,12 +218,9 @@ public class GlassesCutscene : MonoBehaviour
         yield return Animate(holdUpTime, p => Pose(glasses, nosePosition, nose, heldPosition, held, p));
 
         // The X, stuck to the inside of the right lens (camera side), not drawn yet.
-        AimReticle reticle = AimReticle.Create(strokeAMaterial, strokeBMaterial, reticleColor, layer);
+        AimReticle reticle = AimReticle.Create(strokeAMaterial, strokeBMaterial, markerColor, layer);
         Transform rt = reticle.transform;
-        rt.SetParent(lens, false);
-        rt.localPosition = Vector3.zero;
-        rt.localRotation = Quaternion.identity;
-        rt.localScale = Vector3.one * (lensReticleSize / Mathf.Max(1e-4f, lens.lossyScale.x));
+        StickToLens(rt, lens);
         reticle.SetReveal(0f, 0f);
 
         // 3. The marker draws the X.
@@ -225,30 +258,34 @@ public class GlassesCutscene : MonoBehaviour
         }
         yield return new WaitForSeconds(lookAtItTime);
 
-        // 4. Glasses back on. The X lets go of the lens and slides into the middle of the view as they go up.
-        rt.SetParent(camT, true);
-        Vector3 rFrom = rt.localPosition;
-        Quaternion rFromRot = rt.localRotation;
-        Vector3 rFromScale = rt.localScale;
-        Vector3 rTo = new Vector3(0f, 0f, hudDistance);
-        Vector3 rToScale = Vector3.one * hudSize;
+        // 4. Glasses back on. The X stays drawn on the lens the whole way, and the glasses sit on the face so that the
+        //    X ends exactly in the middle of the view: the X on the worn glasses IS the aim reticle (no UI).
         Vector3 gFrom = glasses.localPosition;
         Quaternion gFromRot = glasses.localRotation;
+        Vector3 wornOnCentre = WornPoseFor(glasses, rt);
+        Vector3 xScale = rt.localScale;
+        float startAngle = lensReticleSize / Mathf.Max(0.01f, camT.InverseTransformPoint(rt.position).z);
+        float endAngle = hudSize / hudDistance;
         yield return Animate(putBackTime, p =>
         {
             float first = Mathf.Clamp01(p * 2f);
             float second = Mathf.Clamp01(p * 2f - 1f);
             if (p < 0.5f) Pose(glasses, gFrom, gFromRot, nosePosition, nose, first);
-            else Pose(glasses, nosePosition, nose, wornPosition, worn, second);
-
-            float s = Mathf.SmoothStep(0f, 1f, p);
-            rt.localPosition = Vector3.Lerp(rFrom, rTo, s);
-            rt.localRotation = Quaternion.Slerp(rFromRot, Quaternion.identity, s);
-            rt.localScale = Vector3.Lerp(rFromScale, rToScale, s);
-            helperLight.intensity = 1.3f * (1f - s);
+            else Pose(glasses, nosePosition, nose, wornOnCentre, worn, second);
+            // The X gets smaller as it comes to the eye, so on screen it shrinks smoothly to reticle size
+            // (a full-size X a couple of centimetres from the eye would cover the whole view).
+            float depth = Mathf.Max(0.005f, camT.InverseTransformPoint(rt.position).z);
+            float angle = Mathf.Lerp(startAngle, endAngle, Mathf.SmoothStep(0f, 1f, p));
+            rt.localScale = xScale * (angle * depth / lensReticleSize);
+            helperLight.intensity = 1.3f * (1f - Mathf.SmoothStep(0f, 1f, p));
         }, smooth: false);
-        Destroy(glasses.gameObject); // on the face now: the glass itself isn't seen, only the X
-        PlaceOnHud(rt, camT);
+
+        // On the face now: the frame and glass are too close to the eye to be seen, only the X is. The X becomes the
+        // aim reticle for good: a real object in a fixed plane in front of the eyes, dead centre, always visible.
+        // Moved out along the view line with its size scaled to match, so on screen it doesn't move or change at all.
+        HideFrame(glasses, rt);
+        PlaceOnHud(rt, camT); // same spot and size on screen as on the lens (the X shrank to exactly this while coming to the eye)
+        Destroy(glasses.gameObject);
         reticle.Active = true;
 
         // 5. Gun back up, control back.

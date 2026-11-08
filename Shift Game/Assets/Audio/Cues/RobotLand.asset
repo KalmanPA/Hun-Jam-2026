@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
+  m_Name: RobotLand
+  m_EditorClassIdentifier: Assembly-CSharp::SoundCue
+  clips:
+  - {fileID: 8300000, guid: 4b753ca358fcf9d4dac58a7dab1c075c, type: 3}
+  - {fileID: 8300000, guid: a589e43914b4eba4a90a3d4bd9a3ab0a, type: 3}
+  - {fileID: 8300000, guid: 868d665c593bbc542b944a8c9d2b5cdc, type: 3}
+  - {fileID: 8300000, guid: f9b8d28e7bcaee141b06178b785c3d6d, type: 3}
+  - {fileID: 8300000, guid: 2fa39326496436c4e9bd4c4e069a2c01, type: 3}
+  autoAssignClips: 1
+  bus: 2
+  volume: 0.8
+  volumeVariance: 0.1
+  pitch: 0.6
+  pitchVariance: 0.06
+  spatialBlend: 1
+  minDistance: 3
+  maxDistance: 35
+  occlusion: 1
+  reverbMix: 1
+  maxVoices: 2
+  limit: 0
+  cooldown: 0.1
+  priority: 100
+  loop: 0

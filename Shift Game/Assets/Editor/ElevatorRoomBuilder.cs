@@ -97,7 +97,7 @@ public static class ElevatorRoomBuilder
     public static void OpenMenu()
     {
         if (!File.Exists(ScenePath)) { Build(true); return; }
-        if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave())
+        if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 
@@ -119,7 +119,7 @@ public static class ElevatorRoomBuilder
 
             if (selfOpen || untitledOpen)
             {
-                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave()) return;
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
                 scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
             else
@@ -179,7 +179,7 @@ public static class ElevatorRoomBuilder
         }
 
         if (openWhenDone && File.Exists(ScenePath) && SceneManager.GetActiveScene().path != ScenePath &&
-            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave())
+            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 

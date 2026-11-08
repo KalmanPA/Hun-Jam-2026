@@ -12,6 +12,8 @@ public class SoundCue : ScriptableObject
 
     [Tooltip("Variations. A random one plays each time, never the same one twice in a row.")]
     public AudioClip[] clips = new AudioClip[0];
+    [Tooltip("Play the clips one after the other in list order (then from the top again) instead of at random.")]
+    public bool playInOrder;
     [Tooltip("Off: Rebuild Sound Bank leaves the clip list alone.")]
     public bool autoAssignClips = true;
     public SoundBus bus = SoundBus.World;

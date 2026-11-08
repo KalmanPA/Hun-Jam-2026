@@ -4,10 +4,11 @@ using UnityEngine;
 
 /// <summary>
 /// The opening of the game, played once when the level starts:
-///  1. Fade in. The player stands at the workbench looking down, working (what's on the bench is out of frame).
-///  2. They look up: four gunless robots (1 HP each) stand across the belt in front of the bench.
-///  3. One robot shouts a long berating line. When it's done the robots keep taking turns berating the player.
-///  4. The player looks down again, lifts the weapon into view and shifts it into gear 2.
+///  1. The moment the game starts one robot starts berating the player: it says the voice lines one after the
+///     other, in order. Only that robot talks.
+///  2. Fade in. The player stands at the workbench looking down, working on the weapon, which lies on the bench.
+///  3. They look up: four gunless robots (1 HP each) stand across the belt in front of the bench.
+///  4. After the first line the player looks down again, picks the weapon up off the bench and shifts into gear 2.
 ///  5. Control starts. Each robot keeps its smug face (face 1) while berating and switches to the angry face
 ///     (face 2) once the player looks at it. They stay where they are, still berating, until they're shot.
 /// While any intro robot is alive the blocking belt (the second belt from the player, behind the robots) only
@@ -31,6 +32,9 @@ public class IntroCutscene : MonoBehaviour
     [SerializeField] private List<RobotEnemy> robots = new List<RobotEnemy>();
     [Tooltip("The 'items come out' opening of the belt behind the robots.")]
     [SerializeField] private ConveyorOpening blockingBelt;
+    [Tooltip("Belt Id of the belt that carries the wall of big crates until the whole intro is over (2 = the middle " +
+             "belt). Used instead of Blocking Belt when it is above 0.")]
+    [SerializeField] private int blockingBeltId = 2;
     [Tooltip("Big crates the blocking belt carries while the intro robots are alive.")]
     [SerializeField] private GameObject[] blockingItems;
     [Tooltip("Plays after the last intro robot is destroyed (glasses + marker reticle), before the belt opens the level.")]
@@ -47,11 +51,10 @@ public class IntroCutscene : MonoBehaviour
     [Tooltip("Working at the bench before looking up.")]
     [SerializeField] private float workTime = 3f;
     [SerializeField] private float lookUpTime = 1.4f;
-    [Tooltip("Pause after looking up, before the first robot starts talking.")]
-    [SerializeField] private float beforeFirstLine = 0.6f;
-    [Tooltip("Longest wait for the first line to finish (also used when the voice line has no clip).")]
+    [Tooltip("Longest wait for the first line to finish (also used when the voice line has no clip). The first line " +
+             "starts the moment the game starts.")]
     [SerializeField] private float firstLineMaxTime = 14f;
-    [Tooltip("Pause after the first line before the player looks down again.")]
+    [Tooltip("Pause after the first line (and after looking up) before the player looks down again.")]
     [SerializeField] private float afterFirstLine = 0.8f;
     [SerializeField] private float lookDownTime = 0.9f;
     [Tooltip("Looking down at the bench before grabbing the weapon.")]
@@ -60,9 +63,11 @@ public class IntroCutscene : MonoBehaviour
     [SerializeField] private float raiseTime = 1.1f;
 
     [Header("Weapon")]
-    [Tooltip("Where the weapon starts before it's lifted (camera space, added to the hip pose). Out of frame.")]
-    [SerializeField] private Vector3 weaponLoweredOffset = new Vector3(-0.05f, -0.55f, 0.1f);
-    [SerializeField] private Vector3 weaponLoweredEuler = new Vector3(40f, -25f, 30f);
+    [Tooltip("Where the weapon lies on the workbench before it's picked up, in the bench's local space " +
+             "(the bench object is the 'Workbench' child; its origin is on the floor, middle of the bench).")]
+    [SerializeField] private Vector3 gunOnBenchPosition = new Vector3(0.05f, 0.97f, -0.08f);
+    [Tooltip("How the weapon lies on the bench (bench local rotation): barrel to the side, on its side.")]
+    [SerializeField] private Vector3 gunOnBenchEuler = new Vector3(0f, 75f, 90f);
     [SerializeField] private Gear startGear = Gear.Second;
 
     [Header("Faces")]
@@ -77,6 +82,11 @@ public class IntroCutscene : MonoBehaviour
     [Tooltip("Longest a single line is waited on (in case a clip is missing).")]
     [SerializeField] private float lineMaxTime = 14f;
 
+    [Header("Rest of the level")]
+    [Tooltip("Seconds after the glasses cutscene (and the belt going back to normal) before the other robots can " +
+             "notice the player and the enemy spawners can start.")]
+    [SerializeField] private float levelStartDelay = 2f;
+
     [Header("Bench work sounds")]
     [Tooltip("Small metal taps while the player works at the bench.")]
     [SerializeField] private bool workSounds = true;
@@ -87,11 +97,18 @@ public class IntroCutscene : MonoBehaviour
     /// <summary>True while the cutscene has control of the player.</summary>
     public static bool IsPlaying { get; private set; }
 
+    /// <summary>
+    /// True from the first frame until the whole intro is over (intro, killing the intro robots, glasses) plus
+    /// <see cref="levelStartDelay"/>. Meanwhile every other robot stays calm and enemy spawners don't start.
+    /// </summary>
+    public static bool LevelHeld { get; private set; }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
     {
         HasPlayed = false;
         IsPlaying = false;
+        LevelHeld = false;
     }
 
     private FirstPersonController player;
@@ -107,9 +124,11 @@ public class IntroCutscene : MonoBehaviour
     {
         // Keep the robots calm from their very first frame (they'd otherwise notice the player right away).
         foreach (RobotEnemy r in robots)
-            if (r != null) r.CombatLocked = true;
+            if (r != null) { r.CombatLocked = true; r.IgnoreLevelHold = true; }
 
         bool willPlay = playIntro && !HasPlayed;
+        // The rest of the level waits for the whole intro (only the first time; testing with Play Intro off doesn't wait).
+        LevelHeld = willPlay;
         if (willPlay) fade = 1f; // black from the first frame, so the level never flashes before the fade in
     }
 
@@ -119,6 +138,12 @@ public class IntroCutscene : MonoBehaviour
         weapon = player != null ? player.GetComponentInChildren<GearShiftWeapon>(true) : null;
         cameraPivot = player != null ? player.CameraPivot : null;
 
+        if (blockingBeltId > 0)
+        {
+            ConveyorOpening byId = ConveyorOpening.FindBeltOwner(blockingBeltId, gameObject.scene);
+            if (byId != null) blockingBelt = byId;
+            else Debug.LogWarning($"[FinalShift] Intro: no belt with Belt Id {blockingBeltId} in this scene, using Blocking Belt instead.", this);
+        }
         if (blockingBelt != null && blockingItems != null && blockingItems.Length > 0 && AnyRobotAlive())
             blockingBelt.OverrideItems(blockingItems, true);
         RobotEnemy.AnyDied += OnRobotDied;
@@ -153,6 +178,7 @@ public class IntroCutscene : MonoBehaviour
     {
         RobotEnemy.AnyDied -= OnRobotDied;
         if (IsPlaying) ReleasePlayer();
+        LevelHeld = false;
         if (fadeTexture != null) Destroy(fadeTexture);
     }
 
@@ -173,43 +199,58 @@ public class IntroCutscene : MonoBehaviour
 
         player.Frozen = true;
         SetPitch(lookDownPitch);
-        Transform gun = null;
+        Transform gun = null, gunParent = null;
         Vector3 gunHip = Vector3.zero, gunLow = Vector3.zero;
         Quaternion gunHipRot = Quaternion.identity, gunLowRot = Quaternion.identity;
+        Transform bench = transform.Find("Workbench");
         if (weapon != null)
         {
             weapon.enabled = false; // no firing, shifting or posing until the player holds it
             gun = weapon.transform;
+            gunParent = gun.parent;
             gunHip = weapon.HipPosition;
             gunHipRot = weapon.HipRotation;
-            gunLow = gunHip + weaponLoweredOffset;
-            gunLowRot = gunHipRot * Quaternion.Euler(weaponLoweredEuler);
-            gun.localPosition = gunLow;
-            gun.localRotation = gunLowRot;
+            if (bench != null)
+            {
+                // The weapon lies on the workbench: it's what the player is working on.
+                gun.SetParent(transform, true);
+                gun.SetPositionAndRotation(bench.TransformPoint(gunOnBenchPosition), bench.rotation * Quaternion.Euler(gunOnBenchEuler));
+            }
+            else
+            {
+                gun.localPosition = gunHip + new Vector3(-0.05f, -0.55f, 0.1f); // no bench: out of frame below
+                gun.localRotation = gunHipRot * Quaternion.Euler(40f, -25f, 30f);
+            }
         }
 
-        // 1. Fade in on the bench, working.
+        // 1. The game starts: one robot starts berating right away, over the fade in. Only that robot talks.
+        RobotEnemy speaker = RandomLivingRobot(null);
+        bool firstLineDone = speaker == null;
+        if (speaker != null)
+        {
+            SoundHandle firstLine = speaker.Say(SoundId.RobotBerate);
+            berating = StartCoroutine(FirstLineThenBerate(firstLine, speaker, () => firstLineDone = true));
+        }
+
+        // 2. Fade in on the bench, working on the weapon.
         StartCoroutine(WorkSounds());
         yield return FadeTo(0f, fadeInTime, true);
         yield return WorkAtBench(Mathf.Max(0f, workTime - fadeInTime));
 
-        // 2. Look up at the robots.
+        // 3. Look up at the robots, and listen until the first line is over.
         yield return TurnHead(lookDownPitch, lookUpPitch, lookUpTime);
-        yield return new WaitForSeconds(beforeFirstLine);
-
-        // 3. One of them gives the first long line.
-        RobotEnemy speaker = RandomLivingRobot(null);
-        if (speaker != null)
-        {
-            SoundHandle line = speaker.Say(SoundId.RobotBerate);
-            yield return WaitForLine(line, firstLineMaxTime, speaker);
-        }
-        berating = StartCoroutine(BerateLoop(speaker));
+        while (!firstLineDone) yield return null;
         yield return new WaitForSeconds(afterFirstLine);
 
-        // 4. Look down again, then lift the weapon while the head comes back up.
+        // 4. Look down again, pick the weapon up off the bench and lift it while the head comes back up.
         yield return TurnHead(lookUpPitch, lookDownPitch, lookDownTime);
         yield return new WaitForSeconds(holdDownTime);
+        if (gun != null)
+        {
+            if (gun.parent != gunParent) gun.SetParent(gunParent, true);
+            gunLow = gun.localPosition;
+            gunLowRot = gun.localRotation;
+        }
 
         bool shifted = false;
         for (float t = 0f; t < raiseTime; t += Time.deltaTime)
@@ -326,19 +367,28 @@ public class IntroCutscene : MonoBehaviour
 
     // ---------------------------------------------------------------- berating
 
-    /// <summary>The robots take turns berating the player, one line at a time, until they're all dead.</summary>
-    private IEnumerator BerateLoop(RobotEnemy lastSpeaker)
+    /// <summary>
+    /// One robot berates the player, saying the lines one after the other (in order), until they're all dead.
+    /// Only that robot talks; if it's destroyed, another living one takes over where it left off.
+    /// </summary>
+    private IEnumerator BerateLoop(RobotEnemy speaker)
     {
         while (AnyRobotAlive())
         {
             yield return new WaitForSeconds(Random.Range(berateGap.x, berateGap.y));
-            RobotEnemy speaker = RandomLivingRobot(lastSpeaker);
+            if (speaker == null || speaker.IsDead) speaker = RandomLivingRobot(null);
             if (speaker == null) break;
-            lastSpeaker = speaker;
             SoundHandle line = speaker.Say(SoundId.RobotBerate);
             yield return WaitForLine(line, lineMaxTime, speaker);
         }
         berating = null;
+    }
+
+    private IEnumerator FirstLineThenBerate(SoundHandle firstLine, RobotEnemy speaker, System.Action onFirstLineDone)
+    {
+        yield return WaitForLine(firstLine, firstLineMaxTime, speaker);
+        onFirstLineDone();
+        yield return BerateLoop(speaker);
     }
 
     private static IEnumerator WaitForLine(SoundHandle line, float maxTime, RobotEnemy speaker)
@@ -393,6 +443,13 @@ public class IntroCutscene : MonoBehaviour
     private void OpenLevel()
     {
         if (blockingBelt != null) blockingBelt.ClearItemOverride();
+        if (LevelHeld) StartCoroutine(ReleaseLevelAfterDelay());
+    }
+
+    private IEnumerator ReleaseLevelAfterDelay()
+    {
+        yield return new WaitForSeconds(levelStartDelay);
+        LevelHeld = false;
     }
 
     // ---------------------------------------------------------------- fade

@@ -51,6 +51,14 @@ public class ConveyorOpening : MonoBehaviour
     private static readonly List<ConveyorOpening> All = new List<ConveyorOpening>();
 
     public int BeltId => beltId;
+
+    /// <summary>The opening that runs the belt with this id (the "items come out" end) in the given scene, or null.</summary>
+    public static ConveyorOpening FindBeltOwner(int id, UnityEngine.SceneManagement.Scene scene)
+    {
+        foreach (ConveyorOpening o in All)
+            if (o != null && o.beltId == id && o.gameObject.scene == scene && o.belt != null) return o;
+        return null;
+    }
     public Flow ItemFlow => flow;
     public GameObject[] ItemPrefabs => overrideItems ?? itemPrefabs;
     public float SpawnInterval => overrideItems != null ? 0f : spawnInterval;

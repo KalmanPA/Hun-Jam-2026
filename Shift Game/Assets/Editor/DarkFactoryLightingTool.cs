@@ -130,7 +130,7 @@ public static class DarkFactoryLightingTool
             Debug.LogWarning("[FinalShift] Dark factory look: " + ScenePath + " not found.");
             return default;
         }
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave()) return default;
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return default;
         return EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 

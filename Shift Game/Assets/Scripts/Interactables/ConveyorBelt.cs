@@ -178,8 +178,10 @@ public class ConveyorBelt : MonoBehaviour
 
         Vector3 spawnPoint = transform.TransformPoint(new Vector3(0f, height, -length * 0.5f + SpawnInset));
 
-        // Wait until the spawn area is clear (also keeps big crates from overlapping).
-        if (Physics.CheckBox(spawnPoint + Vector3.up * 1.1f, new Vector3(width * 0.45f, 1f, 0.95f), transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+        // Wait until the spawn area is clear (also keeps big crates from overlapping). With an item override (the intro's
+        // wall of crates) the check is exactly the crate's own depth, so each one comes out right against the last one.
+        float halfDepth = source.HasItemOverride ? PrefabDepth(prefab) * 0.5f + 0.02f : 0.95f;
+        if (Physics.CheckBox(spawnPoint + Vector3.up * 1.1f, new Vector3(width * 0.45f, 1f, halfDepth), transform.rotation, ~0, QueryTriggerInteraction.Ignore))
             return false;
 
         SpawnItem(prefab, spawnPoint);
@@ -208,7 +210,7 @@ public class ConveyorBelt : MonoBehaviour
             Vector3 point = transform.TransformPoint(new Vector3(0f, height, centre));
             if (!Physics.CheckBox(point + Vector3.up * 1.1f, new Vector3(width * 0.45f, 1f, depth * 0.5f), transform.rotation, ~0, QueryTriggerInteraction.Ignore))
                 SpawnItem(prefab, point);
-            z += depth + 0.1f;
+            z += depth + 0.04f;
         }
         Physics.SyncTransforms();
         spawnTimer = 0f;

@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
+  m_Name: DoorOpen
+  m_EditorClassIdentifier: Assembly-CSharp::SoundCue
+  clips:
+  - {fileID: 8300000, guid: f43b52d2ca6ef194e9f1ca58d0c4bc2c, type: 3}
+  - {fileID: 8300000, guid: 2c3ec63f250b9f04281c917ccf8ce169, type: 3}
+  autoAssignClips: 1
+  bus: 3
+  volume: 0.9
+  volumeVariance: 0.1
+  pitch: 1
+  pitchVariance: 0.04
+  spatialBlend: 1
+  minDistance: 3
+  maxDistance: 35
+  occlusion: 1
+  reverbMix: 1
+  maxVoices: 4
+  limit: 0
+  cooldown: 0.1
+  priority: 50
+  loop: 0

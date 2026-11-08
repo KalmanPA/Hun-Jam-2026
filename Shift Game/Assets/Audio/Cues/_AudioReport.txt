@@ -1,0 +1,50 @@
+Footstep             Footstep 1, Footstep 2, Footstep 3
+PlayerLand           [stand-in] Footstep 1, Footstep 2, Footstep 3
+PlayerHurt           (none)
+WeaponGearEngage     Lock clack
+WeaponGearRelease    Lock clack
+WeaponEmpty          [stand-in] Button
+WeaponLaser          Fire_laser
+WeaponGear2Shot      [stand-in] Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
+WeaponGear3Shot      [stand-in] Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
+WeaponRocketJump     [stand-in] Big_Bumm
+BulletImpact         Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
+LaserImpact          Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
+Gear2Explosion       [stand-in] Big_Bumm
+RobotHurt            ouch1, ouch2, ouch3long, ouch4, ouch5, ouch6
+RobotHitMetal        Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
+RobotAlert           Stop you criminal!
+RobotDeath           RoboDeath
+RobotDeathVoice      Goodbye
+RobotExplode         Big_Bumm
+RobotLand            [stand-in] Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
+EnemyBulletFire      [stand-in] Fire_laser
+EnemyLaserFire       Fire_laser
+EnemyBulletImpact    Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
+ShieldHit            Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
+ShieldBreak          Metal hit 3, Metal hit 4, Metal hit 5
+RobotBerate          11s break, Blinkrate, Denied lunch, Terminate, Your output is down
+Debris               Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
+ButtonPress          Button
+ButtonRelease        Button
+TargetHit            Metal hit 1, Metal hit 2, Metal hit 3, Metal hit 4, Metal hit 5
+TargetBreak          [stand-in] Big_Bumm
+DoorOpen             Door 1, Door 2
+DoorClose            Door close
+DoorUnlock           Approval
+SpawnerHatch         Door small
+ElevatorLoop         Elevator drone 1, Elevator drone 2, Elevator drone 3
+ElevatorStart        [stand-in] Lock clack
+ElevatorStop         [stand-in] Metal hit hard 1, Metal hit hard 2, Metal hit hard 3, Metal hit hard 4, Metal hit hard 5
+ConveyorLoop         Machine drone
+CableBoxHum          Server drone
+PickupHealth         Approval
+PickupAmmo           [stand-in] Lock clack
+PickupLand           Metal hit 1, Metal hit 2
+MusicEnd             End tunes
+
+Stand-ins (placeholder clips until proper ones exist): PlayerLand, WeaponEmpty, WeaponGear2Shot, WeaponGear3Shot, WeaponRocketJump, Gear2Explosion, RobotLand, EnemyBulletFire, TargetBreak, ElevatorStart, ElevatorStop, PickupAmmo
+Events with no clip yet: PlayerHurt
+Skipped on purpose: none
+Clips not used by anything: none
+Mixer: Assets/Audio/GameMixer.mixer

@@ -79,7 +79,7 @@ public static class BossLevelBuilder
     public static void OpenMenu()
     {
         if (!File.Exists(ScenePath)) { Build(true); return; }
-        if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave())
+        if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 
@@ -101,7 +101,7 @@ public static class BossLevelBuilder
 
             if (bossOpen || untitledOpen)
             {
-                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave()) return;
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
                 scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
             else
@@ -156,7 +156,7 @@ public static class BossLevelBuilder
         }
 
         if (openWhenDone && File.Exists(ScenePath) && SceneManager.GetActiveScene().path != ScenePath &&
-            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave())
+            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 

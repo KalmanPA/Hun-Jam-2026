@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
+  m_Name: DoorUnlock
+  m_EditorClassIdentifier: Assembly-CSharp::SoundCue
+  clips:
+  - {fileID: 8300000, guid: 9123d54b6151f394bad436ca2058e0ab, type: 3}
+  autoAssignClips: 1
+  bus: 3
+  volume: 0.9
+  volumeVariance: 0.1
+  pitch: 1
+  pitchVariance: 0.02
+  spatialBlend: 0.7
+  minDistance: 4
+  maxDistance: 50
+  occlusion: 0
+  reverbMix: 1
+  maxVoices: 2
+  limit: 0
+  cooldown: 0.3
+  priority: 30
+  loop: 0

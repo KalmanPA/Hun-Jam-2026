@@ -115,6 +115,22 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     [Tooltip("Seconds the face takes to slide from calm to combat when the player is noticed.")]
     [SerializeField] private float combatFaceChangeTime = 0.6f;
 
+    [Header("Voice")]
+    [Tooltip("Own voice line (e.g. RobotGazember). None = the usual alert bark. Said when it notices the player, " +
+             "then again now and then while fighting.")]
+    [SerializeField] private SoundId personalVoice = SoundId.None;
+    [Tooltip("Seconds between personal voice lines while fighting (random range).")]
+    [SerializeField] private Vector2 personalVoiceGap = new Vector2(9f, 15f);
+
+    [Header("Recoil")]
+    [Tooltip("Parts kicked back when a shot leaves the muzzle with the same index (e.g. each gun arm). Empty = no recoil.")]
+    [SerializeField] private Transform[] recoilParts = new Transform[0];
+    [Tooltip("How far a part is pushed back (metres) and tipped up (degrees) by one shot.")]
+    [SerializeField] private float recoilDistance = 0.12f;
+    [SerializeField] private float recoilAngle = 14f;
+    [Tooltip("How fast a part springs back after a shot. Higher = snappier.")]
+    [SerializeField] private float recoilReturn = 12f;
+
     [Header("Combat lock")]
     [Tooltip("While on, the robot stays calm: it doesn't notice the player, move or shoot (e.g. the intro cutscene). " +
              "Scripts can switch it with CombatLocked.")]
@@ -176,7 +192,17 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     public bool HasShield => shield != null && shield.IsHeld;
 
     /// <summary>Makes the robot go for the player right away (used by spawners after it lands).</summary>
-    public void Alert() { if (!combatLocked) aware = true; }
+    public void Alert() { if (!combatLocked && !CutsceneHold) aware = true; }
+
+    /// <summary>Set by the intro for its own robots: they fight during the intro, so the level hold doesn't apply to them.</summary>
+    public bool IgnoreLevelHold { get; set; }
+
+    /// <summary>
+    /// True while a cutscene has control of the player (intro or glasses), and for every robot but the intro ones
+    /// until the whole intro is over (+ a short delay, see IntroCutscene.LevelHeld). The robot then acts as if it
+    /// were combat locked: no noticing, moving or shooting.
+    /// </summary>
+    private bool CutsceneHold => IntroCutscene.IsPlaying || GlassesCutscene.IsPlaying || (IntroCutscene.LevelHeld && !IgnoreLevelHold);
 
     /// <summary>While true the robot stays out of combat (calm face, no noticing, moving or shooting). For cutscenes.</summary>
     public bool CombatLocked
@@ -218,6 +244,51 @@ public class RobotEnemy : MonoBehaviour, IDamageable
             originalMaterials[i] = bodyRenderers[i] != null ? bodyRenderers[i].sharedMaterials : null;
 
         SetUpFace();
+        SetUpRecoil();
+    }
+
+    // ---------------------------------------------------------------- recoil
+
+    private Vector3[] recoilBasePos;
+    private Quaternion[] recoilBaseRot;
+    private float[] recoilAmount;
+
+    private void SetUpRecoil()
+    {
+        int n = recoilParts != null ? recoilParts.Length : 0;
+        recoilBasePos = new Vector3[n];
+        recoilBaseRot = new Quaternion[n];
+        recoilAmount = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            if (recoilParts[i] == null) continue;
+            recoilBasePos[i] = recoilParts[i].localPosition;
+            recoilBaseRot[i] = recoilParts[i].localRotation;
+        }
+    }
+
+    private void Kick(int muzzleIndex)
+    {
+        if (recoilAmount == null || recoilAmount.Length == 0) return;
+        int i = muzzleIndex % recoilAmount.Length;
+        recoilAmount[i] = 1f;
+    }
+
+    private void LateUpdate()
+    {
+        if (recoilAmount == null) return;
+        for (int i = 0; i < recoilAmount.Length; i++)
+        {
+            Transform part = recoilParts[i];
+            if (part == null) continue;
+            recoilAmount[i] = Mathf.MoveTowards(recoilAmount[i] * Mathf.Exp(-recoilReturn * Time.deltaTime), 0f, 0.001f);
+            float a = recoilAmount[i];
+            // Back along the robot's facing, expressed in the part's parent space, and tipped up.
+            Vector3 back = part.parent != null ? part.parent.InverseTransformDirection(-transform.forward) : -transform.forward;
+            part.localPosition = recoilBasePos[i] + back * (recoilDistance * a);
+            Vector3 pivotAxis = part.parent != null ? part.parent.InverseTransformDirection(transform.right) : transform.right;
+            part.localRotation = Quaternion.AngleAxis(-recoilAngle * a, pivotAxis) * recoilBaseRot[i];
+        }
     }
 
     // ---------------------------------------------------------------- face
@@ -284,11 +355,14 @@ public class RobotEnemy : MonoBehaviour, IDamageable
 
         bool playerAlive = playerHealth == null || !playerHealth.IsDead;
         float distance = FlatDistance(transform.position, player.position);
-        if (distance <= detectionRange) aware = true;
-        if (!playerAlive || combatLocked) aware = false;
+        // Noticing needs line of sight: in range is not enough, a wall or crate between them hides the player.
+        // (Once aware, a robot stays aware. Getting shot or a spawner's Alert() also makes it aware.)
+        if (!aware && distance <= detectionRange && !combatLocked && !CutsceneHold && CanSeePlayer()) aware = true;
+        if (!playerAlive || combatLocked || CutsceneHold) aware = false;
 
         if (aware && !wasAware) BarkAlert();
         wasAware = aware;
+        UpdatePersonalVoice();
 
         canSee = aware && CanSeePlayer();
         aim.Tick(canSee, Time.deltaTime);
@@ -493,6 +567,7 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     private void Fire()
     {
         Transform muzzle = CurrentMuzzle();
+        Kick(nextMuzzle);
         nextMuzzle++; // alternate muzzles
 
         Vector3 origin = muzzle.position;
@@ -570,7 +645,9 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     {
         if (dead || amount <= 0f) return;
 
-        if (!combatLocked) aware = true; // getting shot gives the player away
+        // Shooting a robot that's waiting for the intro to end wakes it up early (not during a cutscene).
+        if (IntroCutscene.LevelHeld && !IntroCutscene.IsPlaying && !GlassesCutscene.IsPlaying) IgnoreLevelHold = true;
+        if (!combatLocked && !CutsceneHold) aware = true; // getting shot gives the player away
         if (HasShield) return;           // invulnerable while holding the shield
 
         health -= amount;
@@ -695,8 +772,26 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     }
 
     /// <summary>"Stop, you criminal!" when it notices the player. Shared cooldown so a room of robots doesn't all shout.</summary>
+    private float nextPersonalVoiceTime;
+
+    /// <summary>Robots with their own voice line say it now and then while fighting.</summary>
+    private void UpdatePersonalVoice()
+    {
+        if (personalVoice == SoundId.None || !aware || Time.time < nextPersonalVoiceTime) return;
+        if (voiceLine.IsPlaying) return;
+        SayLine(personalVoice);
+        nextPersonalVoiceTime = Time.time + UnityEngine.Random.Range(personalVoiceGap.x, personalVoiceGap.y);
+    }
+
     private void BarkAlert()
     {
+        if (personalVoice != SoundId.None)
+        {
+            // Its own line instead of the shared bark, right as it notices the player.
+            SayLine(personalVoice);
+            nextPersonalVoiceTime = Time.time + UnityEngine.Random.Range(personalVoiceGap.x, personalVoiceGap.y);
+            return;
+        }
         if (nextAlertBarkTime - Time.time > 10f) nextAlertBarkTime = 0f; // left over from a previous play session
         if (Time.time < nextAlertBarkTime) return;
         nextAlertBarkTime = Time.time + UnityEngine.Random.Range(5f, 9f);

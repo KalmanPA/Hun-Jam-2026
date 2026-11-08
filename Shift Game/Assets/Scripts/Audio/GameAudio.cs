@@ -185,8 +185,8 @@ public class GameAudio : MonoBehaviour
         if (cue == null || cue.clips == null || cue.clips.Length == 0) return null;
         int count = cue.clips.Length;
         int last = a != null && a.lastClip.TryGetValue(cue, out int l) ? l : -1;
-        int index = Random.Range(0, count);
-        if (count > 1 && index == last) index = (index + 1 + Random.Range(0, count - 1)) % count;
+        int index = cue.playInOrder ? (last + 1) % count : Random.Range(0, count);
+        if (!cue.playInOrder && count > 1 && index == last) index = (index + 1 + Random.Range(0, count - 1)) % count;
         for (int i = 0; i < count && cue.clips[index] == null; i++) index = (index + 1) % count;
         if (a != null) a.lastClip[cue] = index;
         return cue.clips[index];

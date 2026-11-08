@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
+  m_Name: TargetHit
+  m_EditorClassIdentifier: Assembly-CSharp::SoundCue
+  clips:
+  - {fileID: 8300000, guid: db939dec7dd36094f98e0b59086e8398, type: 3}
+  - {fileID: 8300000, guid: d7c03a3266f6d2041945e84cda263b56, type: 3}
+  - {fileID: 8300000, guid: ad4e7a8292c42ab489a62a2332ccc7b2, type: 3}
+  - {fileID: 8300000, guid: 79373beef7a4b7c44aa68363ab0c5869, type: 3}
+  - {fileID: 8300000, guid: 53a4b0b926082ca47ab12df7cc70de59, type: 3}
+  autoAssignClips: 1
+  bus: 3
+  volume: 0.7
+  volumeVariance: 0.1
+  pitch: 1.1
+  pitchVariance: 0.1
+  spatialBlend: 1
+  minDistance: 2
+  maxDistance: 35
+  occlusion: 1
+  reverbMix: 1
+  maxVoices: 3
+  limit: 0
+  cooldown: 0.04
+  priority: 100
+  loop: 0

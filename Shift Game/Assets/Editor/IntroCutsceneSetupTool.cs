@@ -355,7 +355,7 @@ public static class IntroCutsceneSetupTool
             Debug.LogWarning("[FinalShift] Intro cutscene: " + ScenePath + " not found.");
             return default;
         }
-        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsToSave()) return default;
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return default;
         return EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 
