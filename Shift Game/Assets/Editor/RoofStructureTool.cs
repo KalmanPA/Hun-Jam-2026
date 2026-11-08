@@ -267,21 +267,21 @@ public static class RoofStructureTool
                gAlongMin.ToString("0.0") + ".." + gAlongMax.ToString("0.0") + ", across " + gMin.ToString("0.0") + ".." + gMax.ToString("0.0") + ".";
     }
 
-    private static string HierarchyPath(Transform t)
+    internal static string HierarchyPath(Transform t)
     {
         string p = t.name;
         while (t.parent != null) { t = t.parent; p = t.name + "/" + p; }
         return p;
     }
 
-    private static GameObject Child(GameObject parent, string name)
+    internal static GameObject Child(GameObject parent, string name)
     {
         var g = new GameObject(name);
         g.transform.SetParent(parent.transform, false);
         return g;
     }
 
-    private static void Beam(List<CombineInstance> list, Mesh cube, Vector3 a, Vector3 b, float t)
+    internal static void Beam(List<CombineInstance> list, Mesh cube, Vector3 a, Vector3 b, float t)
     {
         Vector3 d = b - a;
         float len = d.magnitude;
@@ -291,7 +291,7 @@ public static class RoofStructureTool
         list.Add(new CombineInstance { mesh = cube, transform = m });
     }
 
-    private static void MeshObject(GameObject parent, string name, List<CombineInstance> parts, Material mat, List<Mesh> store)
+    internal static void MeshObject(GameObject parent, string name, List<CombineInstance> parts, Material mat, List<Mesh> store)
     {
         var mesh = new Mesh { name = name, indexFormat = IndexFormat.UInt32 };
         mesh.CombineMeshes(parts.ToArray(), true, true);
