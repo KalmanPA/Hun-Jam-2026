@@ -9,9 +9,9 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// Builds the intro cutscene into the Game scene (see IntroCutscene for what it does):
 ///  - "== Intro Cutscene ==" at the scene root with the IntroCutscene component,
-///  - the player start and a workbench in front of the first conveyor belt,
-///  - four RobotIntro robots (no gun, 1 HP, never move) between the first and second belt, facing the player,
-///  - the second belt set as the blocking belt, carrying Crate_IntroWall crates while the robots live.
+///  - the player start and a workbench past the first conveyor belt (it runs behind the player), facing the second,
+///  - four RobotIntro robots (no gun, 1 HP, never move) between the second and third belt, facing the player,
+///  - the third belt set as the blocking belt, carrying Crate_IntroWall crates while the robots live.
 /// Also makes the RobotIntro and Crate_IntroWall prefab variants and adds the long robot voice lines to the
 /// sound bank (RobotBerate).
 ///
@@ -33,14 +33,15 @@ public static class IntroCutsceneSetupTool
     private const string GrimePath = "Assets/ShaderTest/Textures/Grime64.png";
 
     // Bump this to make the tool run once more automatically on every machine.
-    private const int AutoRunVersion = 1;
+    // 2: player and bench moved past the first belt; replaces the intro built by version 1.
+    private const int AutoRunVersion = 2;
     private const string AutoRunPrefKey = "FinalShift.IntroCutscene.AutoRunVersion";
 
     // Pieces of the robot model that make up its arm gun (same list as EnemyVariantsTool).
     private static readonly string[] GunPieces = { "Cube.016", "ShootMuzzle", "Cylinder.011" };
 
     // Layout
-    private const float StartBehindFirstBelt = 2.6f;    // player start, measured back from the first belt's centre line
+    private const float StartBehindFirstBelt = 2.6f;    // player start, measured back from the centre line of the belt in front of the player
     private const float BenchDistance = 0.8f;           // bench centre in front of the player
     private const float BenchWidth = 1.5f;
     private const float BenchDepth = 0.6f;
@@ -50,12 +51,13 @@ public static class IntroCutsceneSetupTool
 
     static IntroCutsceneSetupTool()
     {
-        if (EditorPrefs.GetInt(AutoRunPrefKey, 0) >= AutoRunVersion) return;
+        int ran = EditorPrefs.GetInt(AutoRunPrefKey, 0);
+        if (ran >= AutoRunVersion) return;
         EditorApplication.delayCall += () =>
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || EditorApplication.isUpdating) return;
             EditorPrefs.SetInt(AutoRunPrefKey, AutoRunVersion);
-            Build(false);
+            Build(ran > 0); // an older version of the intro gets replaced by the new layout
         };
     }
 
@@ -227,9 +229,9 @@ public static class IntroCutsceneSetupTool
     private static bool BuildInScene(Scene scene, GameObject robotPrefab, GameObject cratePrefab)
     {
         List<Belt> belts = FindBelts(scene);
-        if (belts.Count < 2)
+        if (belts.Count < 3)
         {
-            Debug.LogError("[FinalShift] Intro cutscene: the Game scene needs at least two conveyor belts.");
+            Debug.LogError("[FinalShift] Intro cutscene: the Game scene needs at least three conveyor belts.");
             return false;
         }
 
@@ -248,12 +250,15 @@ public static class IntroCutsceneSetupTool
         if (best == float.MaxValue) reference = (belts[0].a + belts[0].b) * 0.5f;
 
         belts.Sort((x, y) => x.Distance(reference).CompareTo(y.Distance(reference)));
-        Belt first = belts[0];
-        Belt second = belts[1];
+        // Belt 1 is behind the player (the bench stands past it), belt 2 is between the player and the robots,
+        // belt 3 is behind the robots and blocks the view of the level.
+        Belt behind = belts[0];
+        Belt first = belts[1];
+        Belt second = belts[2];
 
-        Vector3 p1 = first.Closest(reference);
-        Vector3 p2 = second.Closest(p1);
-        Vector3 forward = p2 - p1;
+        Vector3 p0 = behind.Closest(reference);
+        Vector3 p1 = first.Closest(p0);
+        Vector3 forward = p1 - p0;
         forward.y = 0f;
         if (forward.sqrMagnitude < 0.01f) { Debug.LogError("[FinalShift] Intro cutscene: the first two belts overlap."); return false; }
         forward.Normalize();
@@ -285,6 +290,7 @@ public static class IntroCutsceneSetupTool
             Vector3 guess = p1 + right * RobotOffsets[i];
             Vector3 onFirst = first.Closest(guess);
             Vector3 onSecond = second.Closest(onFirst);
+            if ((onSecond - onFirst).sqrMagnitude < 0.01f) onSecond = onFirst + forward * 4f;
             Vector3 spot = Floor((onFirst + onSecond) * 0.5f, start.y);
             Vector3 look = eye - spot;
             look.y = 0f;

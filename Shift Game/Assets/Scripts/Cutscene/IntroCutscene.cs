@@ -5,10 +5,11 @@ using UnityEngine;
 /// <summary>
 /// The opening of the game, played once when the level starts:
 ///  1. Fade in. The player stands at the workbench looking down, working (what's on the bench is out of frame).
-///  2. They look up: four gunless robots (1 HP each) stand across the first conveyor belt.
+///  2. They look up: four gunless robots (1 HP each) stand across the belt in front of the bench.
 ///  3. One robot shouts a long berating line. When it's done the robots keep taking turns berating the player.
 ///  4. The player looks down again, lifts the weapon into view and shifts it into gear 2.
-///  5. Control starts. The robots stay where they are, still berating, until they're shot.
+///  5. Control starts. Each robot keeps its smug face (face 1) while berating and switches to the angry face
+///     (face 2) once the player looks at it. They stay where they are, still berating, until they're shot.
 /// While any intro robot is alive the blocking belt (the second belt from the player, behind the robots) only
 /// carries big crates, back to back, so the rest of the level can't be seen. When the last one dies the belt
 /// goes back to its normal items.
@@ -61,6 +62,12 @@ public class IntroCutscene : MonoBehaviour
     [SerializeField] private Vector3 weaponLoweredOffset = new Vector3(-0.05f, -0.55f, 0.1f);
     [SerializeField] private Vector3 weaponLoweredEuler = new Vector3(40f, -25f, 30f);
     [SerializeField] private Gear startGear = Gear.Second;
+
+    [Header("Faces")]
+    [Tooltip("After the intro a robot switches from its smug face to its angry face once it's this far inside the screen " +
+             "(0 = anywhere on screen, 0.3 = the middle 40%).")]
+    [SerializeField, Range(0f, 0.45f)] private float lookedAtMargin = 0.12f;
+    [SerializeField] private float lookedAtDistance = 40f;
 
     [Header("Berating")]
     [Tooltip("Silence between two berating lines (random range).")]
@@ -277,10 +284,38 @@ public class IntroCutscene : MonoBehaviour
     private void StartFight()
     {
         HasPlayed = true;
-        foreach (RobotEnemy r in robots)
-            if (r != null && !r.IsDead) r.CombatLocked = false;
+        StartCoroutine(UnlockWhenSeen());
         if (berating == null && AnyRobotAlive()) berating = StartCoroutine(BerateLoop(null));
         CheckIntroOver();
+    }
+
+    /// <summary>
+    /// Once the player has control, each robot keeps its smug face (face 1) until the player looks at it,
+    /// then switches to its angry face (face 2) and joins the fight.
+    /// </summary>
+    private IEnumerator UnlockWhenSeen()
+    {
+        Camera cam = cameraPivot != null ? cameraPivot.GetComponentInChildren<Camera>() : null;
+        if (cam == null) cam = Camera.main;
+        while (true)
+        {
+            bool anyLocked = false;
+            foreach (RobotEnemy r in robots)
+            {
+                if (r == null || r.IsDead || !r.CombatLocked) continue;
+                anyLocked = true;
+                if (cam == null || IsLookedAt(cam, r)) r.CombatLocked = false;
+            }
+            if (!anyLocked) yield break;
+            yield return null;
+        }
+    }
+
+    private bool IsLookedAt(Camera cam, RobotEnemy robot)
+    {
+        Vector3 face = robot.transform.position + Vector3.up * 1.6f;
+        Vector3 v = cam.WorldToViewportPoint(face);
+        return v.z > 0f && v.z < lookedAtDistance && v.x > lookedAtMargin && v.x < 1f - lookedAtMargin && v.y > 0f && v.y < 1f;
     }
 
     // ---------------------------------------------------------------- berating
