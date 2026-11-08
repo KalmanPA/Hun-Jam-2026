@@ -1,0 +1,15 @@
+// Laser Metal - 10 metal hits (Shift Game), laser-processed
+// Soft hits: velocity 1-100, Hard hits: velocity 101-127
+<global> ampeg_attack=0 ampeg_release=0.25 loop_mode=one_shot
+<group> lovel=1 hivel=100
+<region> sample=samples/Laser_Soft_1.wav lokey=36 hikey=47 pitch_keycenter=42
+<region> sample=samples/Laser_Soft_2.wav lokey=48 hikey=59 pitch_keycenter=54
+<region> sample=samples/Laser_Soft_3.wav lokey=60 hikey=71 pitch_keycenter=66
+<region> sample=samples/Laser_Soft_4.wav lokey=72 hikey=83 pitch_keycenter=78
+<region> sample=samples/Laser_Soft_5.wav lokey=84 hikey=95 pitch_keycenter=90
+<group> lovel=101 hivel=127
+<region> sample=samples/Laser_Hard_1.wav lokey=36 hikey=47 pitch_keycenter=42
+<region> sample=samples/Laser_Hard_2.wav lokey=48 hikey=59 pitch_keycenter=54
+<region> sample=samples/Laser_Hard_3.wav lokey=60 hikey=71 pitch_keycenter=66
+<region> sample=samples/Laser_Hard_4.wav lokey=72 hikey=83 pitch_keycenter=78
+<region> sample=samples/Laser_Hard_5.wav lokey=84 hikey=95 pitch_keycenter=90
