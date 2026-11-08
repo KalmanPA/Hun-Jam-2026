@@ -65,8 +65,8 @@ Shader "Final Shift/Flat Triplanar Grime"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
 
-            // Global multiplier on every material's Grime Strength (0.25 = 75% less grime noise).
-            #define GRIME_GLOBAL_SCALE 0.25h
+            // 1 brings back the grime texture and the dithered light/fog bands (the "noise"). 0 = clean flat colour.
+            #define NOISE_ENABLED 0
 
             TEXTURE2D(_GrimeTex);
             SAMPLER(sampler_point_repeat);
@@ -214,22 +214,28 @@ Shader "Final Shift/Flat Triplanar Grime"
                 inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(IN.positionWS);
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(IN.positionCS);
 
-                half threshold = lerp(0.5h, Bayer4x4(IN.positionCS.xy), _DitherStrength);
+                // Kalman (2026-11-08): no noise at all. The grime texture and the Bayer dither (with the light/fog
+                // banding it was there to hide) are switched off; the properties stay so materials keep loading.
+                #if NOISE_ENABLED
+                    half threshold = lerp(0.5h, Bayer4x4(IN.positionCS.xy), _DitherStrength);
+                    half grime = SampleGrimeTriplanar(IN.triPos, IN.triNormal);
+                    half3 albedo = _BaseColor.rgb * lerp(1.0h, grime, _GrimeStrength);
+                #else
+                    half3 albedo = _BaseColor.rgb;
+                #endif
 
-                // Flat colour with world-space grime multiplied on top.
-                half grime = SampleGrimeTriplanar(IN.triPos, IN.triNormal);
-                // GRIME_GLOBAL_SCALE tones the noise down on every material at once (Kalman: 75% less noise).
-                half3 albedo = _BaseColor.rgb * lerp(1.0h, grime, _GrimeStrength * GRIME_GLOBAL_SCALE);
-
-                // Stepped, dithered lighting.
                 half3 light = _Ambient.rgb + GatherLighting(inputData);
-                light = BandDither(saturate(light / 2.0h), _LightBands, threshold) * 2.0h;
+                #if NOISE_ENABLED
+                    light = BandDither(saturate(light / 2.0h), _LightBands, threshold) * 2.0h;
+                #endif
                 half3 color = albedo * light;
 
-                // Stepped, dithered fog (uses the scene's Lighting > Fog settings).
+                // Fog (uses the scene's Lighting > Fog settings).
                 #if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
                     half fog = ComputeFogIntensity(IN.fogCoord);
-                    fog = saturate(floor(fog * _FogBands + threshold) / _FogBands);
+                    #if NOISE_ENABLED
+                        fog = saturate(floor(fog * _FogBands + threshold) / _FogBands);
+                    #endif
                     color = lerp(unity_FogColor.rgb, color, fog);
                 #endif
 

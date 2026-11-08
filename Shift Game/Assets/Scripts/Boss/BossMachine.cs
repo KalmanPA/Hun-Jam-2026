@@ -3,22 +3,18 @@ using UnityEngine;
 
 /// <summary>
 /// The final boss: a big factory machine with a screen for a head and a health bar under the screen.
-///  - It can only be hurt through the wire hatches on its back, high up (the player needs the gear 4 rocket jump).
+///  - It can only be hurt through its wire hatches (weak points).
 ///    Now and then one hatch opens for a while; its beacon turns green. Shooting the wires hurts the boss.
-///  - At each shield threshold (by default 66% and 33% health) every hatch slams shut under a glass bubble and the
-///    shield targets around the room stand up, each with a beam to the boss. Shooting all of them drops the shield.
-///  - It fires slow fans of big bullets at the player from its two cannons.
+///  - It does not shoot and has no shield phase.
 ///  - At zero health it plays the <see cref="BossEndingCutscene"/>.
 /// The screen shows the robot face texture: calm, angry in the fight, the broken screen face when it dies.
 /// </summary>
 public class BossMachine : MonoBehaviour
 {
-    public enum Phase { Fighting, Shielded, Dead }
+    public enum Phase { Fighting, Dead }
 
     [Header("Health")]
-    [SerializeField] private float maxHealth = 1200f;
-    [Tooltip("Health fractions where the shield phase starts (each once).")]
-    [SerializeField] private float[] shieldPhaseAt = { 0.66f, 0.33f };
+    [SerializeField] private float maxHealth = 600f;
 
     [Header("Weak points")]
     [SerializeField] private BossWeakPoint[] weakPoints = new BossWeakPoint[0];
@@ -28,13 +24,6 @@ public class BossMachine : MonoBehaviour
     [SerializeField] private float openDuration = 7f;
     [Tooltip("Seconds before the first hatch opens.")]
     [SerializeField] private float firstOpenDelay = 6f;
-
-    [Header("Shield phase")]
-    [SerializeField] private DoorTarget[] shieldTargets = new DoorTarget[0];
-    [Tooltip("One beam per target (same order), from the target to the boss. Shown while that target stands.")]
-    [SerializeField] private LineRenderer[] targetBeams = new LineRenderer[0];
-    [Tooltip("Seconds after the shield drops before a hatch opens.")]
-    [SerializeField] private float afterShieldDelay = 2f;
 
     [Header("Screen")]
     [SerializeField] private Renderer screen;
@@ -48,21 +37,6 @@ public class BossMachine : MonoBehaviour
     [SerializeField] private Transform healthFill;
     [Tooltip("Trails behind the real health so a hit reads clearly.")]
     [SerializeField] private Transform healthTrail;
-
-    [Header("Attack")]
-    [SerializeField] private bool attack = true;
-    [SerializeField] private Transform[] cannons = new Transform[0];
-    [SerializeField] private Vector2 attackInterval = new Vector2(3.5f, 5.5f);
-    [SerializeField] private float firstAttackDelay = 5f;
-    [SerializeField] private int bulletsPerVolley = 5;
-    [Tooltip("Degrees between two bullets of a volley.")]
-    [SerializeField] private float volleySpread = 7f;
-    [SerializeField] private float bulletSpeed = 13f;
-    [SerializeField] private float bulletDamage = 7f;
-    [SerializeField] private float bulletSize = 0.45f;
-    [SerializeField] private float bulletRange = 70f;
-    [SerializeField] private Material bulletMaterial;
-    [SerializeField] private Color bulletColor = new Color(1f, 0.2f, 0.1f);
 
     [Header("End")]
     [SerializeField] private EnemySpawner[] spawners = new EnemySpawner[0];
@@ -81,12 +55,10 @@ public class BossMachine : MonoBehaviour
     private Color screenBaseColor = Color.white;
     private float screenFlash;
     private float trail = 1f;
-    private int nextShieldIndex;
     private float nextOpenTime;
     private float closeTime;
     private BossWeakPoint openPoint;
-    private float nextAttackTime;
-    private Transform player;
+    private BossWeakPoint lastOpened;
 
     private void Awake()
     {
@@ -98,7 +70,6 @@ public class BossMachine : MonoBehaviour
             if (screenMaterial.HasProperty("_BaseColor")) screenBaseColor = screenMaterial.GetColor("_BaseColor");
             SetFace(calmFaceOffset);
         }
-        System.Array.Sort(shieldPhaseAt, (a, b) => b.CompareTo(a)); // highest first
     }
 
     private void OnDestroy()
@@ -108,12 +79,7 @@ public class BossMachine : MonoBehaviour
 
     private void Start()
     {
-        PlayerHealth ph = FindFirstObjectByType<PlayerHealth>();
-        player = ph != null ? ph.transform : null;
-        foreach (DoorTarget t in shieldTargets) if (t != null) t.SetDown();
-        UpdateBeams();
         nextOpenTime = Time.time + firstOpenDelay;
-        nextAttackTime = Time.time + firstAttackDelay;
         SetFace(angryFaceOffset);
         UpdateBar(true);
     }
@@ -123,11 +89,7 @@ public class BossMachine : MonoBehaviour
         UpdateBar(false);
         UpdateScreen();
         if (CurrentPhase == Phase.Dead) return;
-
-        if (CurrentPhase == Phase.Fighting) UpdateHatches();
-        else UpdateShield();
-
-        if (attack) UpdateAttack();
+        UpdateHatches();
     }
 
     // ---------------------------------------------------------------- damage
@@ -140,13 +102,7 @@ public class BossMachine : MonoBehaviour
         screenFlash = 1f;
         GameAudio.Play(SoundId.RobotHitMetal, from.transform.position, Mathf.Clamp(amount / 20f, 0.5f, 1f));
 
-        if (Health <= 0f) { Die(); return; }
-
-        if (nextShieldIndex < shieldPhaseAt.Length && Normalized <= shieldPhaseAt[nextShieldIndex])
-        {
-            nextShieldIndex++;
-            StartShield();
-        }
+        if (Health <= 0f) Die();
     }
 
     // ---------------------------------------------------------------- hatches
@@ -172,86 +128,11 @@ public class BossMachine : MonoBehaviour
         closeTime = Time.time + openDuration;
     }
 
-    private BossWeakPoint lastOpened;
-
     private void CloseOpenHatch()
     {
         if (openPoint != null) openPoint.SetOpen(false);
         openPoint = null;
         nextOpenTime = Time.time + Random.Range(closedTime.x, closedTime.y);
-    }
-
-    // ---------------------------------------------------------------- shield
-
-    private void StartShield()
-    {
-        CloseOpenHatch();
-        foreach (BossWeakPoint w in weakPoints) if (w != null) { w.SetOpen(false); w.SetShield(true); }
-        int raised = 0;
-        foreach (DoorTarget t in shieldTargets) if (t != null) { t.Restore(); raised++; }
-        CurrentPhase = raised > 0 ? Phase.Shielded : Phase.Fighting;
-        if (CurrentPhase == Phase.Fighting)
-        {
-            foreach (BossWeakPoint w in weakPoints) if (w != null) w.SetShield(false);
-            return;
-        }
-        GameAudio.Play(SoundId.DoorUnlock, transform.position + Vector3.up * 8f);
-        UpdateBeams();
-    }
-
-    private void UpdateShield()
-    {
-        UpdateBeams();
-        foreach (DoorTarget t in shieldTargets)
-            if (t != null && !t.IsDestroyed) return;
-
-        // All targets down: shield off.
-        CurrentPhase = Phase.Fighting;
-        foreach (BossWeakPoint w in weakPoints) if (w != null) w.SetShield(false);
-        GameAudio.Play(SoundId.ShieldBreak, transform.position + Vector3.up * 6f);
-        nextOpenTime = Time.time + afterShieldDelay;
-    }
-
-    private void UpdateBeams()
-    {
-        for (int i = 0; i < targetBeams.Length; i++)
-        {
-            LineRenderer beam = targetBeams[i];
-            if (beam == null) continue;
-            bool on = CurrentPhase == Phase.Shielded && i < shieldTargets.Length && shieldTargets[i] != null && !shieldTargets[i].IsDestroyed;
-            beam.enabled = on;
-            if (on)
-            {
-                float w = 0.07f + Mathf.Sin(Time.time * 9f + i) * 0.02f;
-                beam.startWidth = w;
-                beam.endWidth = w * 1.6f;
-            }
-        }
-    }
-
-    // ---------------------------------------------------------------- attack
-
-    private void UpdateAttack()
-    {
-        if (player == null || cannons.Length == 0 || Time.time < nextAttackTime) return;
-        PlayerHealth ph = player.GetComponent<PlayerHealth>();
-        if (ph != null && ph.IsDead) return;
-        nextAttackTime = Time.time + Random.Range(attackInterval.x, attackInterval.y);
-
-        Vector3 target = player.position + Vector3.up * 1.1f;
-        foreach (Transform c in cannons)
-        {
-            if (c == null) continue;
-            Vector3 dir = (target - c.position).normalized;
-            for (int i = 0; i < bulletsPerVolley; i++)
-            {
-                float angle = (i - (bulletsPerVolley - 1) * 0.5f) * volleySpread;
-                Vector3 d = Quaternion.AngleAxis(angle, Vector3.up) * dir;
-                EnemyBullet.Spawn(c.position, d, bulletSpeed, bulletDamage, bulletRange, bulletMaterial, bulletColor, bulletSize);
-            }
-            GameAudio.Play(SoundId.EnemyBulletFire, c.position, 1f, 0.7f);
-            GearExplosion.Spawn(c.position, 0.8f, bulletMaterial, bulletColor, 0.2f);
-        }
     }
 
     // ---------------------------------------------------------------- screen + bar
@@ -296,10 +177,9 @@ public class BossMachine : MonoBehaviour
         if (CurrentPhase == Phase.Dead) return;
         CurrentPhase = Phase.Dead;
         CloseOpenHatch();
-        foreach (BossWeakPoint w in weakPoints) if (w != null) { w.SetOpen(false); w.SetShield(false); }
+        foreach (BossWeakPoint w in weakPoints) if (w != null) w.SetOpen(false);
         foreach (EnemySpawner s in spawners) if (s != null) s.StopSpawning();
         SetFace(deadFaceOffset);
-        UpdateBeams();
         if (ending != null) ending.Play(this);
         else Debug.LogWarning("BossMachine: no ending cutscene linked.", this);
     }
@@ -311,11 +191,5 @@ public class BossMachine : MonoBehaviour
         if (!Application.isPlaying) return;
         Health = 0f;
         Die();
-    }
-
-    [ContextMenu("Start Shield Phase (test)")]
-    private void DebugShield()
-    {
-        if (Application.isPlaying && CurrentPhase == Phase.Fighting) StartShield();
     }
 }

@@ -370,7 +370,6 @@ public static class BossLevelBuilder
             so.FindProperty("lampLight").objectReferenceValue = lampLight;
             so.FindProperty("lampClosedMaterial").objectReferenceValue = lampRed;
             so.FindProperty("lampOpenMaterial").objectReferenceValue = lampGreen;
-            so.FindProperty("shieldBubble").objectReferenceValue = bubble.gameObject;
             so.FindProperty("sparkMaterial").objectReferenceValue = spark;
             so.ApplyModifiedPropertiesWithoutUndo();
             weakPoints.Add(wp);
@@ -379,12 +378,10 @@ public static class BossLevelBuilder
         BossMachine boss = root.AddComponent<BossMachine>();
         SerializedObject bso = new SerializedObject(boss);
         SetList(bso.FindProperty("weakPoints"), weakPoints.ToArray());
-        SetList(bso.FindProperty("cannons"), cannons.ToArray());
         bso.FindProperty("screen").objectReferenceValue = screen.GetComponent<Renderer>();
         bso.FindProperty("screenLight").objectReferenceValue = screenLight;
         bso.FindProperty("healthFill").objectReferenceValue = fillPivot;
         bso.FindProperty("healthTrail").objectReferenceValue = trailPivot;
-        bso.FindProperty("bulletMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(BulletMat);
         bso.ApplyModifiedPropertiesWithoutUndo();
 
         // Remember these for the targets and the ending.
@@ -537,8 +534,6 @@ public static class BossLevelBuilder
     private static void LinkBoss(BossMachine boss, DoorTarget[] targets, LineRenderer[] beams, EnemySpawner[] spawners, BossEndingCutscene ending)
     {
         SerializedObject so = new SerializedObject(boss);
-        SetList(so.FindProperty("shieldTargets"), targets);
-        SetList(so.FindProperty("targetBeams"), beams);
         SetList(so.FindProperty("spawners"), spawners);
         so.FindProperty("ending").objectReferenceValue = ending;
         so.ApplyModifiedPropertiesWithoutUndo();

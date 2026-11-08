@@ -68,6 +68,7 @@ public class FirstPersonController : MonoBehaviour
     private void Awake()
     {
         if (GetComponent<PlayerFootsteps>() == null) gameObject.AddComponent<PlayerFootsteps>();
+        if (GetComponent<PlayerGlowLight>() == null) gameObject.AddComponent<PlayerGlowLight>();
         controller = GetComponent<CharacterController>();
 
         if (inputActions == null)
