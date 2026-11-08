@@ -190,6 +190,18 @@ public class RobotEnemy : MonoBehaviour, IDamageable
     }
     public float Health => health;
 
+    /// <summary>The face shown while dying (the third face on the face texture).</summary>
+    public float DyingFaceOffset => dyingFaceOffset;
+
+    private float faceOverride = float.NaN;
+
+    /// <summary>Forces a face expression (texture X offset) until cleared with NaN. Used by cutscenes.</summary>
+    public void ShowFace(float xOffset)
+    {
+        faceOverride = xOffset;
+        if (!float.IsNaN(xOffset)) SetFace(xOffset);
+    }
+
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -281,7 +293,8 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         canSee = aware && CanSeePlayer();
         aim.Tick(canSee, Time.deltaTime);
         bool combatFace = aware && !(calmFaceWhileShielded && HasShield);
-        SlideFace(combatFace ? combatFaceOffset : calmFaceOffset);
+        if (!float.IsNaN(faceOverride)) SetFace(faceOverride);
+        else SlideFace(combatFace ? combatFaceOffset : calmFaceOffset);
 
         if (!aware)
         {
