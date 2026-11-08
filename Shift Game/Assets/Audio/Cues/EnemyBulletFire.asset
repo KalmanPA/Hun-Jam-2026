@@ -13,13 +13,17 @@ MonoBehaviour:
   m_Name: EnemyBulletFire
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
   clips:
-  - {fileID: 8300000, guid: 0eca0e08407e42140bf67298959cdb38, type: 3}
+  - {fileID: 8300000, guid: 7b507b4e8bff413c829628ebeef25131, type: 3}
+  - {fileID: 8300000, guid: 29a1b8f7a07449cda6c54fb6eef5d0e4, type: 3}
+  - {fileID: 8300000, guid: 54691c3e9367436b97b5c361926e9aa0, type: 3}
+  - {fileID: 8300000, guid: cb36567ec078465b9474e653b9704d27, type: 3}
+  - {fileID: 8300000, guid: 4ed724f59139452984b017b4002dc13a, type: 3}
   playInOrder: 0
   autoAssignClips: 1
   bus: 2
-  volume: 0.55
+  volume: 0.7
   volumeVariance: 0.1
-  pitch: 1.7
+  pitch: 1.15
   pitchVariance: 0.08
   spatialBlend: 1
   minDistance: 3

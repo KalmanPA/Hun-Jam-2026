@@ -13,20 +13,24 @@ MonoBehaviour:
   m_Name: EnemyLaserFire
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
   clips:
-  - {fileID: 8300000, guid: 0eca0e08407e42140bf67298959cdb38, type: 3}
+  - {fileID: 8300000, guid: 95f11ea5e052487b8063a9c5b16dd26e, type: 3}
+  - {fileID: 8300000, guid: 7f60470c6b06454cae6e0869774c4608, type: 3}
+  - {fileID: 8300000, guid: 6debf6020da24e98874ba711b5bdc870, type: 3}
+  - {fileID: 8300000, guid: 8b1be03fb1fa4480b20793b903c21957, type: 3}
+  - {fileID: 8300000, guid: d4a655c2ef9e40c08efbc8e174c69129, type: 3}
   playInOrder: 0
   autoAssignClips: 1
   bus: 2
   volume: 0.9
   volumeVariance: 0.1
-  pitch: 0.75
-  pitchVariance: 0.05
+  pitch: 1
+  pitchVariance: 0.06
   spatialBlend: 1
   minDistance: 4
   maxDistance: 60
   occlusion: 1
   reverbMix: 1
-  maxVoices: 2
+  maxVoices: 3
   limit: 0
   cooldown: 0.1
   priority: 40

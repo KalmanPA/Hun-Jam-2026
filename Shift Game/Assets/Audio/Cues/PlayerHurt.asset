@@ -12,11 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b714684544382aa44b3ba0ff45c0ad11, type: 3}
   m_Name: PlayerHurt
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
-  clips: []
+  clips:
+  - {fileID: 8300000, guid: 9de4ba821c2e34068ba981ac3417e8cb, type: 3}
+  - {fileID: 8300000, guid: 4386cbb72a2ee40c0bc1eec0a1f4d187, type: 3}
   playInOrder: 0
   autoAssignClips: 1
   bus: 1
-  volume: 0.8
+  volume: 0.9
   volumeVariance: 0.1
   pitch: 1
   pitchVariance: 0.06

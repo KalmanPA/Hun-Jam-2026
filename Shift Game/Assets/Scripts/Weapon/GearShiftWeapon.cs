@@ -271,6 +271,11 @@ public class GearShiftWeapon : MonoBehaviour
     private float recoilAngle;
     private float gearKick;
     private bool fatalShotPending;
+    private Vector3 hitFlickEuler;   // small jolt when the player gets hit, decays back to rest
+    private Vector3 hitFlickOffset;
+    private float dryShakeStart = -10f; // light, fast rattle on an empty / out-of-gear trigger pull
+
+    private const float DryShakeDuration = 0.16f;
 
     // ---------------------------------------------------------------- setup
 
@@ -278,6 +283,7 @@ public class GearShiftWeapon : MonoBehaviour
     {
         controller = GetComponentInParent<FirstPersonController>();
         health = GetComponentInParent<PlayerHealth>();
+        if (health != null) health.Damaged += OnPlayerDamaged;
         owner = controller != null ? controller.transform : transform.root;
         cam = GetComponentInParent<Camera>();
         if (cam == null) cam = Camera.main;
@@ -308,6 +314,7 @@ public class GearShiftWeapon : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (health != null) health.Damaged -= OnPlayerDamaged;
         if (cam != null && weaponCam != null)
         {
             UniversalAdditionalCameraData baseData = cam.GetUniversalAdditionalCameraData();
@@ -704,15 +711,21 @@ public class GearShiftWeapon : MonoBehaviour
         // No shooting while the gun is tilted for shifting.
         if (!locked || tilt > 0.15f) return;
 
+        bool pressed = (mouse != null && mouse.leftButton.wasPressedThisFrame) || (pad != null && pad.rightTrigger.wasPressedThisFrame);
+        bool held = (mouse != null && mouse.leftButton.isPressed) || (pad != null && pad.rightTrigger.isPressed);
+
         GearFireSettings s = SettingsFor(CurrentGear);
-        if (s == null || !s.canFire) return;
+        if (s == null || !s.canFire)
+        {
+            // Not in a gear (neutral or reverse): the trigger only clicks.
+            if (pressed && !fatalShotPending) DryFire();
+            return;
+        }
 
         // The barrel has to be fully out.
         BarrelRuntime barrel = ActiveBarrel();
         if (barrel != null && barrel.extend < 0.95f) return;
 
-        bool pressed = (mouse != null && mouse.leftButton.wasPressedThisFrame) || (pad != null && pad.rightTrigger.wasPressedThisFrame);
-        bool held = (mouse != null && mouse.leftButton.isPressed) || (pad != null && pad.rightTrigger.isPressed);
         if (!(s.automatic ? held : pressed)) return;
         if (burstRemaining > 0 || Time.time < nextFireTime) return;
 
@@ -724,7 +737,9 @@ public class GearShiftWeapon : MonoBehaviour
         }
         if (Ammo < Mathf.Max(1, s.ammoCost))
         {
-            GameAudio.Play2D(SoundId.WeaponEmpty); // empty: no reload in this game
+            // Empty: no reload in this game. Holding the trigger on an automatic gear keeps clicking, but not faster than 4/s.
+            nextFireTime = Mathf.Max(nextFireTime, Time.time + 0.25f);
+            DryFire();
             return;
         }
 
@@ -746,6 +761,22 @@ public class GearShiftWeapon : MonoBehaviour
         burstRemaining = Mathf.Max(1, s.burstCount) - 1;
         nextBurstTime = Time.time + 1f / Mathf.Max(1f, s.burstRate);
         FireBullet(s);
+    }
+
+    /// <summary>Empty-magazine click (a sped-up "Metal hit 3") plus a light, fast shake of the gun.</summary>
+    private void DryFire()
+    {
+        GameAudio.Play2D(SoundId.WeaponEmpty);
+        dryShakeStart = Time.time;
+    }
+
+    /// <summary>The player got hit: flick the gun a tiny amount in a random direction.</summary>
+    private void OnPlayerDamaged(float amount)
+    {
+        if (health == null || health.IsDead) return;
+        float k = Mathf.Clamp(amount / 20f, 0.5f, 1f);
+        hitFlickEuler += new Vector3(UnityEngine.Random.Range(-3f, -1.2f), UnityEngine.Random.Range(-2f, 2f), UnityEngine.Random.Range(-3.5f, 3.5f)) * k;
+        hitFlickOffset += new Vector3(UnityEngine.Random.Range(-0.006f, 0.006f), -0.006f, -0.008f) * k;
     }
 
     private Transform Muzzle()
@@ -850,6 +881,19 @@ public class GearShiftWeapon : MonoBehaviour
     {
         recoilOffset = Vector3.Lerp(recoilOffset, Vector3.zero, recoilReturn * Time.deltaTime);
         gearKick = Mathf.MoveTowards(gearKick, 0f, 6f * Time.deltaTime);
+        hitFlickEuler = Vector3.Lerp(hitFlickEuler, Vector3.zero, 10f * Time.deltaTime);
+        hitFlickOffset = Vector3.Lerp(hitFlickOffset, Vector3.zero, 10f * Time.deltaTime);
+
+        // Dry-fire rattle: a quick, fading jitter.
+        Vector3 shakeEuler = Vector3.zero;
+        Vector3 shakeOffset = Vector3.zero;
+        float since = Time.time - dryShakeStart;
+        if (since >= 0f && since < DryShakeDuration)
+        {
+            float fade = 1f - since / DryShakeDuration;
+            shakeEuler = new Vector3(Mathf.Sin(since * 95f) * 0.8f, Mathf.Sin(since * 71f + 1f) * 0.4f, Mathf.Sin(since * 113f + 2f) * 1.1f) * fade;
+            shakeOffset = new Vector3(Mathf.Sin(since * 101f) * 0.0012f, Mathf.Sin(since * 127f + 0.5f) * 0.0012f, 0f) * fade;
+        }
 
         float t = Mathf.SmoothStep(0f, 1f, tilt);
         Quaternion hipRot = Quaternion.Euler(hipEuler);
@@ -863,11 +907,12 @@ public class GearShiftWeapon : MonoBehaviour
             recoil = recoilAngle * rise * (1f - Mathf.SmoothStep(0f, 1f, p));
         }
         kick *= Quaternion.Euler(-recoil, 0f, 0f);
+        kick *= Quaternion.Euler(hitFlickEuler + shakeEuler);
 
         Quaternion shiftRot = ShiftRotation();
         Vector3 shiftPos = shiftFocusPosition - shiftRot * (ShiftFocusLocal * modelScale);
 
-        transform.localPosition = Vector3.Lerp(hipPosition, shiftPos, t) + recoilOffset;
+        transform.localPosition = Vector3.Lerp(hipPosition, shiftPos, t) + recoilOffset + hitFlickOffset + shakeOffset;
         transform.localRotation = Quaternion.Slerp(hipRot, shiftRot, t) * kick;
     }
 

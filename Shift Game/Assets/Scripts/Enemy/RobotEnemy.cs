@@ -726,8 +726,8 @@ public class RobotEnemy : MonoBehaviour, IDamageable
         }
         SetFace(dyingFaceOffset);
         voiceLine.Stop(0.05f);
-        GameAudio.PlayAttached(SoundId.RobotDeath, transform, Vector3.up * 1.2f);
-        if (UnityEngine.Random.value < 0.35f) SayLine(SoundId.RobotDeathVoice);
+        // Kalman: the only death sound is "Goodbye" (slight pitch variation is in its cue); the blast follows in Explode().
+        SayLine(SoundId.RobotDeathVoice);
         StartCoroutine(ExplodeAfterDelay());
     }
 

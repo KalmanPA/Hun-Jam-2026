@@ -20,14 +20,14 @@ MonoBehaviour:
   volume: 0.9
   volumeVariance: 0.1
   pitch: 1
-  pitchVariance: 0.05
+  pitchVariance: 0.08
   spatialBlend: 1
   minDistance: 3
   maxDistance: 40
   occlusion: 1
   reverbMix: 1
-  maxVoices: 1
-  limit: 1
-  cooldown: 2
+  maxVoices: 3
+  limit: 0
+  cooldown: 0.1
   priority: 50
   loop: 0

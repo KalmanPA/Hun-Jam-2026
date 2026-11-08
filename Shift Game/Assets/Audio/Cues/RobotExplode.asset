@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: RobotExplode
   m_EditorClassIdentifier: Assembly-CSharp::SoundCue
   clips:
-  - {fileID: 8300000, guid: a1e049f5caa2a8e40967f8e9165f0c32, type: 3}
+  - {fileID: 8300000, guid: fb9540ef1d214ce4bbf727499d35aafc, type: 3}
+  - {fileID: 8300000, guid: 2e1bc118ce91421c9eaa6a7bfdae2624, type: 3}
   playInOrder: 0
   autoAssignClips: 1
   bus: 2

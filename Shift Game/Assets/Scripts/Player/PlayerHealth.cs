@@ -15,6 +15,8 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     public event Action Died;
     public event Action Revived;
+    /// <summary>Fired after every hit that lands, with the damage taken (the gun flicks on it).</summary>
+    public event Action<float> Damaged;
 
     private void Awake()
     {
@@ -34,7 +36,8 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         if (IsDead || amount <= 0f) return;
         Current = Mathf.Max(0f, Current - amount);
-        GameAudio.Play2D(SoundId.PlayerHurt, Mathf.Clamp(amount / 20f, 0.5f, 1f));
+        GameAudio.Play2D(SoundId.PlayerHurt, Mathf.Clamp(amount / 20f, 0.5f, 1f)); // PlayerOuch 1 / 2
+        Damaged?.Invoke(amount);
         if (IsDead) Died?.Invoke();
     }
 
