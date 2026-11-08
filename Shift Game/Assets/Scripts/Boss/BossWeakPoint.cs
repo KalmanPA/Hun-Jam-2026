@@ -4,7 +4,8 @@ using UnityEngine;
 /// One wire hatch (weak point) in the boss room, wired to the boss. Closed: the lid is shut and the wires are sunk
 /// inside. Open: the lid swings up, the wires come out and can be shot (damage goes to the boss). The boss decides
 /// when a hatch opens; it closes again once it has taken its share of damage.
-/// The beacon lamp and the cable running to the boss show red while closed and green while open.
+/// The cable running to its target on the boss (and that target) is dark while the hatch is closed and glows red
+/// while it is open, so only the open weak point's wire is lit. The beacon lamp shows the closed/open colours.
 /// </summary>
 public class BossWeakPoint : MonoBehaviour
 {
@@ -16,16 +17,29 @@ public class BossWeakPoint : MonoBehaviour
     [Tooltip("How far the wires rise out of the hatch when it opens.")]
     [SerializeField] private float wireRise = 0.75f;
     [SerializeField] private float openTime = 0.6f;
+    [Tooltip("The round target disc inside the hatch. While open it turns (around Y) to face the player.")]
+    [SerializeField] private Transform faceTarget;
+    [SerializeField] private float faceTurnSpeed = 240f;
 
     [Header("Beacon lamp + cable to the boss")]
     [SerializeField] private Renderer[] lamps = new Renderer[0];
-    [Tooltip("The cable pieces running from this hatch to the boss. Coloured like the lamp.")]
+    [Tooltip("The cable pieces running from this hatch to its target on the boss, plus the glowing face of that target.")]
     [SerializeField] private Renderer[] cables = new Renderer[0];
     [SerializeField] private Light lampLight;
     [SerializeField] private Material lampClosedMaterial;
     [SerializeField] private Material lampOpenMaterial;
     [SerializeField] private Color lampClosedColor = new Color(1f, 0.12f, 0.06f);
-    [SerializeField] private Color lampOpenColor = new Color(0.2f, 1f, 0.25f);
+    [SerializeField] private Color lampOpenColor = new Color(1f, 0.12f, 0.06f);
+    [Tooltip("Beacon light switched off while the hatch is closed.")]
+    [SerializeField] private bool lampLightOffWhenClosed = true;
+
+    [Header("Cable to the boss")]
+    [Tooltip("Cable look while the hatch is closed (dark, not glowing).")]
+    [SerializeField] private Material cableOffMaterial;
+    [Tooltip("Cable look while the hatch is open (glowing red).")]
+    [SerializeField] private Material cableGlowMaterial;
+    [Tooltip("Optional red light at the cable's target on the boss, on only while open.")]
+    [SerializeField] private Light targetLight;
 
     [Header("Boss")]
     [Tooltip("Falls back to the boss in the scene.")]
@@ -41,6 +55,7 @@ public class BossWeakPoint : MonoBehaviour
     private bool lampShowsOpen;
     private float nextSparkTime;
     private float lightBase = 4f;
+    private float targetBase = 3f;
     private float hitFlash;
 
     public bool IsOpen { get; private set; }
@@ -53,6 +68,7 @@ public class BossWeakPoint : MonoBehaviour
         if (lid != null) lidClosed = lid.localRotation;
         if (wires != null) wiresClosed = wires.localPosition;
         if (lampLight != null) lightBase = lampLight.intensity;
+        if (targetLight != null) targetBase = targetLight.intensity;
         ApplyPose();
         SetLamp(false);
     }
@@ -77,15 +93,29 @@ public class BossWeakPoint : MonoBehaviour
             amount = Mathf.MoveTowards(amount, target, Time.deltaTime / Mathf.Max(0.05f, openTime));
             ApplyPose();
         }
+        UpdateFacing();
         bool showOpen = IsOpen && amount > 0.5f;
         if (showOpen != lampShowsOpen) SetLamp(showOpen);
 
-        if (lampLight != null)
+        hitFlash = Mathf.MoveTowards(hitFlash, 0f, Time.deltaTime * 5f);
+        float pulse = lampShowsOpen ? 1f + Mathf.Sin(Time.time * 7f) * 0.25f : 1f;
+        if (lampLight != null) lampLight.intensity = lightBase * pulse + hitFlash * 4f;
+        if (targetLight != null && targetLight.enabled) targetLight.intensity = targetBase * pulse + hitFlash * 4f;
+    }
+
+    /// <summary>Once it is out of the hatch, the target disc turns to face the player; it turns back before sinking.</summary>
+    private void UpdateFacing()
+    {
+        if (faceTarget == null) return;
+        Quaternion want = Quaternion.identity;
+        Camera cam = Camera.main;
+        if (IsOpen && amount > 0.6f && cam != null)
         {
-            hitFlash = Mathf.MoveTowards(hitFlash, 0f, Time.deltaTime * 5f);
-            float pulse = lampShowsOpen ? 1f + Mathf.Sin(Time.time * 7f) * 0.25f : 1f;
-            lampLight.intensity = lightBase * pulse + hitFlash * 4f;
+            Vector3 d = faceTarget.parent.InverseTransformDirection(cam.transform.position - faceTarget.position);
+            d.y = 0f;
+            if (d.sqrMagnitude > 0.001f) want = Quaternion.LookRotation(d.normalized, Vector3.up);
         }
+        faceTarget.localRotation = Quaternion.RotateTowards(faceTarget.localRotation, want, faceTurnSpeed * Time.deltaTime);
     }
 
     private void ApplyPose()
@@ -99,12 +129,17 @@ public class BossWeakPoint : MonoBehaviour
     {
         lampShowsOpen = open;
         Material m = open ? lampOpenMaterial : lampClosedMaterial;
-        if (m != null)
+        if (m != null) foreach (Renderer r in lamps) if (r != null) r.sharedMaterial = m;
+        if (lampLight != null)
         {
-            foreach (Renderer r in lamps) if (r != null) r.sharedMaterial = m;
-            foreach (Renderer r in cables) if (r != null) r.sharedMaterial = m;
+            lampLight.color = open ? lampOpenColor : lampClosedColor;
+            lampLight.enabled = open || !lampLightOffWhenClosed;
         }
-        if (lampLight != null) lampLight.color = open ? lampOpenColor : lampClosedColor;
+
+        // Only the open weak point's cable glows (red); the others stay dark.
+        Material c = open ? cableGlowMaterial : cableOffMaterial;
+        if (c != null) foreach (Renderer r in cables) if (r != null) r.sharedMaterial = c;
+        if (targetLight != null) targetLight.enabled = open;
     }
 
     /// <summary>Called by the wires when they are shot.</summary>

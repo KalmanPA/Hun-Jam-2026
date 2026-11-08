@@ -163,6 +163,24 @@ public class BossMachine : MonoBehaviour
         }
         if (queue.Count > 1 && queue[0] == lastOpened)
             (queue[0], queue[queue.Count - 1]) = (queue[queue.Count - 1], queue[0]);
+
+        // The very first hatch of the fight is never the one with the short cable (closest to the boss).
+        if (lastOpened == null && queue.Count > 1 && queue[0] == ClosestWeakPoint())
+            (queue[0], queue[1]) = (queue[1], queue[0]);
+    }
+
+    private BossWeakPoint ClosestWeakPoint()
+    {
+        BossWeakPoint best = null;
+        float bestDist = float.MaxValue;
+        foreach (BossWeakPoint w in weakPoints)
+        {
+            if (w == null) continue;
+            Vector3 d = w.transform.position - transform.position;
+            d.y = 0f;
+            if (d.sqrMagnitude < bestDist) { bestDist = d.sqrMagnitude; best = w; }
+        }
+        return best;
     }
 
     private void CloseOpenHatch()
