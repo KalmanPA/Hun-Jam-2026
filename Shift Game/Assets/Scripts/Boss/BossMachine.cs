@@ -3,8 +3,10 @@ using UnityEngine;
 
 /// <summary>
 /// The final boss: a big factory machine with a screen for a head and a health bar under the screen.
-///  - It can only be hurt through its wire hatches (weak points).
-///    Now and then one hatch opens for a while; its beacon turns green. Shooting the wires hurts the boss.
+///  - It can only be hurt through its wire hatches (weak points) around the room. One hatch at a time opens
+///    (beacon and cable turn green) and stays open until it has taken its share of damage, then it shuts and,
+///    after a short pause, another one opens. Share = maxHealth / (weak points x closesPerWeakPoint), and the hatches
+///    open in shuffled rounds (each once per round), so every weak point has to be shot shut that many times.
 ///  - It does not shoot and has no shield phase.
 ///  - At zero health it plays the <see cref="BossEndingCutscene"/>.
 /// The screen shows the robot face texture: calm, angry in the fight, the broken screen face when it dies.
@@ -18,10 +20,10 @@ public class BossMachine : MonoBehaviour
 
     [Header("Weak points")]
     [SerializeField] private BossWeakPoint[] weakPoints = new BossWeakPoint[0];
-    [Tooltip("Seconds all hatches stay shut between two openings (random in this range).")]
-    [SerializeField] private Vector2 closedTime = new Vector2(3f, 6f);
-    [Tooltip("Seconds a hatch stays open.")]
-    [SerializeField] private float openDuration = 7f;
+    [Tooltip("How many times every weak point has to be shot shut before the boss dies.")]
+    [SerializeField, Min(1)] private int closesPerWeakPoint = 2;
+    [Tooltip("Seconds between one hatch closing and the next one opening (random in this range).")]
+    [SerializeField] private Vector2 closedTime = new Vector2(2f, 3.5f);
     [Tooltip("Seconds before the first hatch opens.")]
     [SerializeField] private float firstOpenDelay = 6f;
 
@@ -50,13 +52,16 @@ public class BossMachine : MonoBehaviour
     public float Normalized => maxHealth > 0f ? Health / maxHealth : 0f;
     public Renderer Screen => screen;
     public float DeadFaceOffset => deadFaceOffset;
+    /// <summary>Damage one opening of a hatch takes before it shuts.</summary>
+    public float DamagePerOpening => maxHealth / Mathf.Max(1, CountWeakPoints() * closesPerWeakPoint);
 
     private Material screenMaterial;
     private Color screenBaseColor = Color.white;
     private float screenFlash;
     private float trail = 1f;
     private float nextOpenTime;
-    private float closeTime;
+    private float openDamage;
+    private readonly List<BossWeakPoint> queue = new List<BossWeakPoint>();
     private BossWeakPoint openPoint;
     private BossWeakPoint lastOpened;
 
@@ -70,6 +75,7 @@ public class BossMachine : MonoBehaviour
             if (screenMaterial.HasProperty("_BaseColor")) screenBaseColor = screenMaterial.GetColor("_BaseColor");
             SetFace(calmFaceOffset);
         }
+        foreach (BossWeakPoint w in weakPoints) if (w != null) w.SetBoss(this);
     }
 
     private void OnDestroy()
@@ -97,35 +103,55 @@ public class BossMachine : MonoBehaviour
     /// <summary>Wires were shot through an open hatch.</summary>
     public void TakeWeakPointDamage(float amount, BossWeakPoint from)
     {
-        if (CurrentPhase != Phase.Fighting || amount <= 0f) return;
-        Health = Mathf.Max(0f, Health - amount);
+        if (CurrentPhase != Phase.Fighting || amount <= 0f || from == null || from != openPoint) return;
+
+        // Each opening only takes its share; the hatch shuts once that is used up.
+        float share = DamagePerOpening;
+        float applied = Mathf.Min(amount, share - openDamage, Health);
+        if (applied <= 0f) return;
+        openDamage += applied;
+        Health = Mathf.Max(0f, Health - applied);
         screenFlash = 1f;
+        from.ShowDamage();
         GameAudio.Play(SoundId.RobotHitMetal, from.transform.position, Mathf.Clamp(amount / 20f, 0.5f, 1f));
 
-        if (Health <= 0f) Die();
+        if (Health <= 0.01f) { Health = 0f; Die(); return; }
+        if (openDamage >= share - 0.01f) CloseOpenHatch();
     }
 
     // ---------------------------------------------------------------- hatches
 
+    private int CountWeakPoints()
+    {
+        int n = 0;
+        foreach (BossWeakPoint w in weakPoints) if (w != null) n++;
+        return n;
+    }
+
     private void UpdateHatches()
     {
-        if (openPoint != null)
-        {
-            if (Time.time >= closeTime) CloseOpenHatch();
-            return;
-        }
-        if (Time.time < nextOpenTime || weakPoints.Length == 0) return;
+        if (openPoint != null || Time.time < nextOpenTime) return;
+        if (queue.Count == 0) RefillQueue();
+        if (queue.Count == 0) return;
 
-        // Open a random hatch (not the same one twice in a row if there's a choice).
-        var choices = new List<BossWeakPoint>();
-        foreach (BossWeakPoint w in weakPoints) if (w != null && w != lastOpened) choices.Add(w);
-        if (choices.Count == 0) foreach (BossWeakPoint w in weakPoints) if (w != null) choices.Add(w);
-        if (choices.Count == 0) return;
-
-        openPoint = choices[Random.Range(0, choices.Count)];
+        openPoint = queue[0];
+        queue.RemoveAt(0);
         lastOpened = openPoint;
-        openPoint.SetOpen(true);
-        closeTime = Time.time + openDuration;
+        openDamage = 0f;
+        openPoint.SetOpen(true); // stays open until it has taken its share of damage
+    }
+
+    /// <summary>One round: every weak point once, shuffled, never the same one twice in a row.</summary>
+    private void RefillQueue()
+    {
+        foreach (BossWeakPoint w in weakPoints) if (w != null) queue.Add(w);
+        for (int i = queue.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (queue[i], queue[j]) = (queue[j], queue[i]);
+        }
+        if (queue.Count > 1 && queue[0] == lastOpened)
+            (queue[0], queue[queue.Count - 1]) = (queue[queue.Count - 1], queue[0]);
     }
 
     private void CloseOpenHatch()
