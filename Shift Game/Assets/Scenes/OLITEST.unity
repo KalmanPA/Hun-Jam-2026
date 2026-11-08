@@ -499,11 +499,11 @@ PrefabInstance:
     - target: {fileID: -7469942563134713783, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
     - target: {fileID: -7081582181977496142, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
     - target: {fileID: -7081582181977496142, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
       value: 
@@ -511,23 +511,27 @@ PrefabInstance:
     - target: {fileID: -6366617773648712401, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
     - target: {fileID: 350418962972108587, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
     - target: {fileID: 496632943445602984, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
     - target: {fileID: 623433575273853050, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
     - target: {fileID: 754585750732210081, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 367622f2178044577adb08d2d7c4d75c, type: 2}
+      objectReference: {fileID: 2100000, guid: d3ac65033e2fa4cd1bae19293c0a1ef0, type: 2}
+    - target: {fileID: 754585750732210081, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: fe5ee9fa24c6b4a8a82238a5759cc024, type: 2}
     - target: {fileID: 919132149155446097, guid: eabc990a4d0b0423d81b74a646c12808, type: 3}
       propertyPath: m_Name
       value: Gun
