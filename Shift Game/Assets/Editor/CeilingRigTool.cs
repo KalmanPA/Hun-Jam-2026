@@ -391,7 +391,7 @@ public static class CeilingRigTool
 
     // ------------------------------------------------------------------ materials
 
-    private static Material GetOrCreate(string name)
+    internal static Material GetOrCreate(string name)
     {
         string path = MaterialFolder + "/" + name + ".mat";
         Material m = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -420,7 +420,7 @@ public static class CeilingRigTool
         return m;
     }
 
-    private static Material HousingMaterial()
+    internal static Material HousingMaterial()
     {
         Material m = GetOrCreate("Neon_Housing_Metal");
         m.SetColor("_BaseColor", new Color(0.36f, 0.38f, 0.41f));
@@ -430,7 +430,7 @@ public static class CeilingRigTool
         return m;
     }
 
-    private static Material ReflectorMaterial()
+    internal static Material ReflectorMaterial()
     {
         Material m = GetOrCreate("Neon_Reflector_Metal");
         m.SetColor("_BaseColor", new Color(0.82f, 0.85f, 0.9f));
@@ -440,7 +440,7 @@ public static class CeilingRigTool
         return m;
     }
 
-    private static Texture2D GlowTexture()
+    internal static Texture2D GlowTexture()
     {
         string path = TextureFolder + "/Neon_Tube_Glow.png";
         if (!File.Exists(path))

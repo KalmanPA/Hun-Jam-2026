@@ -1,0 +1,14 @@
+Fegyvervalto piktogramok - PBR mapek (V2, pixeles)
+Anyag: muanyag gombok kiemelve, sullyesztett gombmezo, domboru eger; tabla zomancozott fem.
+
+Fajlok tablankent:
+  _BaseColor.png        sRGB
+  _Normal_GL.png        Non-Color, OpenGL (Y+) - Blender / Unity
+  _Height.png           16 bit, Non-Color (displacement / parallax)
+  _Roughness.png        Non-Color
+  _AO.png               Non-Color
+  _Unity_MetallicSmoothness.png  Unity: R = metallic (0), A = smoothness
+
+Metallic: mindenhol 0 (festett felulet), kulon map nem kell.
+Felbontas: Input-v2 4140x1320, Mouse-v2 640x1320 (1 design-pixel = 20 texel).
+Pixel art: a texturakon Closest / Point szurest erdemes hasznalni a BaseColorhoz.

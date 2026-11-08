@@ -10,6 +10,8 @@ using UnityEngine;
 ///  - It does not shoot and has no shield phase.
 ///  - At zero health it plays the <see cref="BossEndingCutscene"/>.
 /// The screen shows the robot face texture: calm, angry in the fight, the broken screen face when it dies.
+/// With a Fight Face picture set, that picture is shown during the fight instead (it still flashes the broken
+/// screen when hurt), and the screen switches to the broken face when the boss dies.
 /// </summary>
 public class BossMachine : MonoBehaviour
 {
@@ -32,6 +34,9 @@ public class BossMachine : MonoBehaviour
     [SerializeField] private float calmFaceOffset = 0f;
     [SerializeField] private float angryFaceOffset = 0.34f;
     [SerializeField] private float deadFaceOffset = 0.67f;
+    [Tooltip("Optional: a single picture shown during the whole fight instead of the calm/angry faces of the atlas " +
+             "(e.g. Dean mustache.png). The dead face (and the hurt glitch) still comes from the atlas.")]
+    [SerializeField] private Texture fightFace;
     [SerializeField] private Light screenLight;
 
     [Header("Health bar")]
@@ -56,6 +61,9 @@ public class BossMachine : MonoBehaviour
     public float DamagePerOpening => maxHealth / Mathf.Max(1, CountWeakPoints() * closesPerWeakPoint);
 
     private Material screenMaterial;
+    private Texture atlasTexture;
+    private Vector2 atlasScale = Vector2.one;
+    private Vector2 atlasOffset;
     private Color screenBaseColor = Color.white;
     private float screenFlash;
     private float trail = 1f;
@@ -73,6 +81,9 @@ public class BossMachine : MonoBehaviour
         {
             screenMaterial = screen.material;
             if (screenMaterial.HasProperty("_BaseColor")) screenBaseColor = screenMaterial.GetColor("_BaseColor");
+            atlasTexture = screenMaterial.mainTexture;
+            atlasScale = screenMaterial.mainTextureScale;
+            atlasOffset = screenMaterial.mainTextureOffset;
             SetFace(calmFaceOffset);
         }
         foreach (BossWeakPoint w in weakPoints) if (w != null) w.SetBoss(this);
@@ -166,9 +177,18 @@ public class BossMachine : MonoBehaviour
     private void SetFace(float x)
     {
         if (screenMaterial == null) return;
-        Vector2 o = screenMaterial.mainTextureOffset;
-        o.x = x;
-        screenMaterial.mainTextureOffset = o;
+        bool dead = Mathf.Approximately(x, deadFaceOffset);
+        if (fightFace != null && !dead)
+        {
+            // The whole fight shows the single fight picture, stretched over the screen.
+            if (screenMaterial.mainTexture != fightFace) screenMaterial.mainTexture = fightFace;
+            screenMaterial.mainTextureScale = Vector2.one;
+            screenMaterial.mainTextureOffset = Vector2.zero;
+            return;
+        }
+        if (atlasTexture != null && screenMaterial.mainTexture != atlasTexture) screenMaterial.mainTexture = atlasTexture;
+        screenMaterial.mainTextureScale = atlasScale;
+        screenMaterial.mainTextureOffset = new Vector2(x, atlasOffset.y);
     }
 
     private void UpdateScreen()
